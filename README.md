@@ -1,5 +1,11 @@
 # Hafslund.Akka.Persistence.Bigtable
 
+## Installation
+This plugin is (supposed to) be released publicly to nuget.org, and the latest released version can be installed by:
+```
+dotnet add package Hafslund.Akka.Persistence.Bigtable
+```
+
 ## Setup
 
 To activate the journal plugin, add the following lines to your actor system configuration file:
