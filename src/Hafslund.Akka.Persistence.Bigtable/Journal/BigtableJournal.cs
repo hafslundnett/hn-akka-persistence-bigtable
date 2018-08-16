@@ -10,30 +10,35 @@ using Google.Cloud.Bigtable.V2;
 using Google.Protobuf;
 using System.Linq;
 using Google.Cloud.Bigtable.Common.V2;
+using Akka.Event;
 
 namespace Hafslund.Akka.Persistence.Bigtable.Journal
 {
     public class BigtableJournal : AsyncWriteJournal
     {
         private static readonly Type PersistentRepresentationType = typeof (IPersistentRepresentation);
-        private static string Family = "f";
-        private static ByteString PayloadColumnQualifier = ByteString.CopyFromUtf8("p");
-        public static string RowKeySeparator = "#";
-        private BigtableClient _BigtableClient;
+        private static readonly string Family = "f";
+        private static readonly ByteString PayloadColumnQualifier = ByteString.CopyFromUtf8("p");
+        private static readonly string RowKeySeparator = "#";
+        private readonly BigtableClient _bigtableClient;
         private readonly TableName _tableName;
-        private Serializer _serializer;
+        private readonly BigtableSettings _settings;
+        private readonly Serializer _serializer;
+        private readonly ILoggingAdapter _log = Context.GetLogger();
 
         public BigtableJournal()
         {
-            var tableNameAsString = GetTableName();
-            _tableName = TableName.Parse(tableNameAsString);
-            _BigtableClient = BigtableClient.Create();
+            _settings = BigtablePersistence.Get(Context.System).BigtableJournalSettings;
+            _log.Debug($"{nameof(BigtableJournal)}: constructing, with table name '{_settings.TableName}'");
+            _tableName = TableName.Parse(_settings.TableName);
+            _bigtableClient = BigtableClient.Create();
             _serializer = Context.System.Serialization.FindSerializerForType(PersistentRepresentationType);
         }
 
-        protected virtual string GetTableName()
+        protected override void PreStart()
         {
-            return Context.System.Settings.Config.GetConfig("akka.persistence.journal.Bigtable").GetString("table-name");
+            _log.Debug("Initializing Bigtable Journal Storage...");
+            base.PreStart();
         }
 
         public override async Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr)
@@ -42,7 +47,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
                 ToRowKeyBigtableByteString(persistenceId, fromSequenceNr),
                 ToRowKeyBigtableByteString(persistenceId, long.MaxValue));
             var rows = RowSet.FromRowRanges(rowRange);
-            var stream = _BigtableClient.ReadRows(_tableName, rows: rows);
+            var stream = _bigtableClient.ReadRows(_tableName, rows: rows);
             var lastRow = await stream.LastOrDefault().ConfigureAwait(false);
             return lastRow == null ? 0 : GetSequenceNumber(lastRow);
         }
@@ -65,7 +70,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
                 rowSet = RowSet.FromRowRanges(RowRange.Closed(startKey, endKey));
             }
 
-            var stream = _BigtableClient.ReadRows(_tableName, rows: rowSet, rowsLimit: max);
+            var stream = _bigtableClient.ReadRows(_tableName, rows: rowSet, rowsLimit: max);
 
             using (var asyncEnumerator = stream.GetEnumerator())
             {
@@ -83,7 +88,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
         protected override async Task DeleteMessagesToAsync(string persistenceId, long toSequenceNr)
         {
             var rows = RowSet.FromRowRanges(RowRange.Closed(ToRowKeyBigtableByteString(persistenceId, 0), ToRowKeyBigtableByteString(persistenceId, toSequenceNr)));
-            var stream = _BigtableClient.ReadRows(_tableName, rows: rows);
+            var stream = _bigtableClient.ReadRows(_tableName, rows: rows);
             var deleteEntries = new List<MutateRowsRequest.Types.Entry>();
             using (var enumerator = stream.GetEnumerator())
             {
@@ -98,7 +103,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
                 var last = deleteEntries.LastOrDefault();
                 deleteEntries.RemoveAt(deleteEntries.Count - 1);
                 deleteEntries.Add(Mutations.CreateEntry(last.RowKey, Mutations.SetCell(Family, PayloadColumnQualifier, ByteString.Empty, new BigtableVersion(-1))));
-                await _BigtableClient.MutateRowsAsync(_tableName, deleteEntries);
+                await _bigtableClient.MutateRowsAsync(_tableName, deleteEntries);
             }
         }
 
@@ -111,7 +116,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
             IImmutableList<Exception> exceptions = null;
             try
             {
-                await _BigtableClient.MutateRowsAsync(_tableName, BigtableEntries).ConfigureAwait(false);
+                await _bigtableClient.MutateRowsAsync(_tableName, BigtableEntries).ConfigureAwait(false);
             }
             catch (Exception e)
             {
