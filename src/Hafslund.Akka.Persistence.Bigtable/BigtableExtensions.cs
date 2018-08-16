@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using Google.Cloud.Bigtable.Common.V2;
 using Google.Cloud.Bigtable.V2;
 
-namespace Hafslund.Akka.Persistence
+namespace Hafslund.Akka.Persistence.Bigtable
 {
     public static class BigtableExtensions
     {

@@ -1,4 +1,4 @@
-﻿namespace Hafslund.Akka.Persistence.Snapshot
+﻿namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
 {
     public class ShardingBigtableSnapshotStore : BigtableSnapshotStore
     {

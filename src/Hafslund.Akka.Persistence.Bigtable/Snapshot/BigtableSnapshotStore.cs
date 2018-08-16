@@ -9,7 +9,7 @@ using Google.Cloud.Bigtable.Common.V2;
 using Google.Cloud.Bigtable.V2;
 using Google.Protobuf;
 
-namespace Hafslund.Akka.Persistence.Snapshot
+namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
 {
     public class BigtableSnapshotStore : SnapshotStore
     {

@@ -11,7 +11,7 @@ using Google.Protobuf;
 using System.Linq;
 using Google.Cloud.Bigtable.Common.V2;
 
-namespace Hafslund.Akka.Persistence.Journal
+namespace Hafslund.Akka.Persistence.Bigtable.Journal
 {
     public class BigtableJournal : AsyncWriteJournal
     {
