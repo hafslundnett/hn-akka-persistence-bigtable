@@ -1,4 +1,4 @@
-﻿namespace Hafslund.Akka.Persistence.Journal
+﻿namespace Hafslund.Akka.Persistence.Bigtable.Journal
 {
     public class ShardingBigtableJournal : BigtableJournal
     {
