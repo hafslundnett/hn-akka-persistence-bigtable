@@ -33,7 +33,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
 
         protected virtual string GetTableName()
         {
-            return Context.System.Settings.Config.GetConfig("akka.persistence.journal.Bigtable").GetString("table-name");
+            return Context.System.Settings.Config.GetConfig("akka.persistence.journal.bigtable").GetString("table-name");
         }
 
         public override async Task<long> ReadHighestSequenceNrAsync(string persistenceId, long fromSequenceNr)

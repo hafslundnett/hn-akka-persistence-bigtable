@@ -31,7 +31,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
 
         protected virtual string GetTableName()
         {
-            return Context.System.Settings.Config.GetConfig("akka.persistence.snapshot-store.Bigtable").GetString("table-name");
+            return Context.System.Settings.Config.GetConfig("akka.persistence.snapshot-store.bigtable").GetString("table-name");
         }
 
         protected override async Task DeleteAsync(SnapshotMetadata metadata)
