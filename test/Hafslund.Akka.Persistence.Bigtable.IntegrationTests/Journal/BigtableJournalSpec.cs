@@ -31,8 +31,8 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Journal
                     }
                     persistence {
                         publish-plugin-commands = on
-                        snapshot-store {
-                            plugin = ""akka.persistence.journal.Bigtable""
+                        journal {
+                            plugin = ""akka.persistence.journal.bigtable""
                             Bigtable {
                                 class = ""Hafslund.Akka.Persistence.Bigtable.Journal.BigtableJournal, Hafslund.Akka.Persistence.Bigtable""
                                 plugin-dispatcher = ""akka.actor.default-dispatcher""
