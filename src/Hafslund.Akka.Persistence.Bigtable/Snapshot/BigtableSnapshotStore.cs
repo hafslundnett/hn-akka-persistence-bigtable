@@ -19,23 +19,22 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
         private static readonly ByteString SnapshotColumnQualifier = ByteString.CopyFromUtf8("s");
         private static readonly string RowKeySeparator = "#";
         private readonly BigtableClient _bigtableClient;
-        private readonly BigtableSettings _settings;
         private readonly TableName _tableName;
         private readonly ILoggingAdapter _log = Context.GetLogger();
         private readonly Serializer _serializer;
 
         public BigtableSnapshotStore()
         {
-            _settings = BigtablePersistence.Get(Context.System).BigtableSnapshotSettings;
-            _log.Debug($"{nameof(BigtableSnapshotStore)}: constructing, with table name '{_settings.TableName}'");
-            _tableName = TableName.Parse(_settings.TableName);
+            var settings = BigtablePersistence.Get(Context.System).BigtableSnapshotSettings;
+            _log.Info($"{nameof(BigtableSnapshotStore)}: constructing, with table name '{settings.TableName}'");
+            _tableName = TableName.Parse(settings.TableName);
             _bigtableClient = BigtableClient.Create();
             _serializer = Context.System.Serialization.FindSerializerForType(SnapshotType);
         }
 
         protected override void PreStart()
         {
-            _log.Debug("Initializing Bigtable Snapshot Storage...");
+            _log.Info("Initializing Bigtable Snapshot Storage...");
             base.PreStart();
         }
 
@@ -75,8 +74,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             var selectedSnapshot = rows.Select(PersistentFromBigtableRow)
                 .OrderByDescending(persistent => persistent.Metadata.SequenceNr)
                 .ThenByDescending(persistent => persistent.Metadata.Timestamp)
-                .Where(persistent => SatisfiesCriteria(criteria, persistent))
-                .FirstOrDefault();
+                .FirstOrDefault(persistent => SatisfiesCriteria(criteria, persistent));
 
             return selectedSnapshot;
         }

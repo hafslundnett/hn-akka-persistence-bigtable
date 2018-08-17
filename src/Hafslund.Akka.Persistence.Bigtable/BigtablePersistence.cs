@@ -12,11 +12,8 @@ namespace Hafslund.Akka.Persistence.Bigtable
     /// </summary>
     public sealed class BigtablePersistence : IExtension
     {
-        private readonly ActorSystem _system;
-
-        public BigtablePersistence(ActorSystem system, BigtableSettings bigtableJournalSettings, BigtableSettings bigtableSnapshotSettings)
+        public BigtablePersistence(BigtableSettings bigtableJournalSettings, BigtableSettings bigtableSnapshotSettings)
         {
-            _system = system;
             BigtableJournalSettings = bigtableJournalSettings;
             BigtableSnapshotSettings = bigtableSnapshotSettings;
         }

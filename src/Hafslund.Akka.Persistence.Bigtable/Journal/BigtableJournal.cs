@@ -22,22 +22,21 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
         private static readonly string RowKeySeparator = "#";
         private readonly BigtableClient _bigtableClient;
         private readonly TableName _tableName;
-        private readonly BigtableSettings _settings;
         private readonly Serializer _serializer;
         private readonly ILoggingAdapter _log = Context.GetLogger();
 
         public BigtableJournal()
         {
-            _settings = BigtablePersistence.Get(Context.System).BigtableJournalSettings;
-            _log.Debug($"{nameof(BigtableJournal)}: constructing, with table name '{_settings.TableName}'");
-            _tableName = TableName.Parse(_settings.TableName);
+            var settings = BigtablePersistence.Get(Context.System).BigtableJournalSettings;
+            _log.Info($"{nameof(BigtableJournal)}: constructing, with table name '{settings.TableName}'");
+            _tableName = TableName.Parse(settings.TableName);
             _bigtableClient = BigtableClient.Create();
             _serializer = Context.System.Serialization.FindSerializerForType(PersistentRepresentationType);
         }
 
         protected override void PreStart()
         {
-            _log.Debug("Initializing Bigtable Journal Storage...");
+            _log.Info("Initializing Bigtable Journal Storage...");
             base.PreStart();
         }
 
@@ -51,6 +50,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
             var lastRow = await stream.LastOrDefault().ConfigureAwait(false);
             return lastRow == null ? 0 : GetSequenceNumber(lastRow);
         }
+
         public override async Task ReplayMessagesAsync(IActorContext context, string persistenceId, long fromSequenceNr, long toSequenceNr, long max, Action<IPersistentRepresentation> recoveryCallback)
         {
             if (max <= 0 || toSequenceNr < fromSequenceNr)
@@ -155,7 +155,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
 
         private IPersistentRepresentation ToPersistentRepresentation(Row BigtableRow)
         {
-            var columnFamily = BigtableRow.Families.Where(f => f.Name == Family).First();
+            var columnFamily = BigtableRow.Families.First(f => f.Name == Family);
             var column = columnFamily.Columns.Single(c => c.Qualifier.Equals(PayloadColumnQualifier));
             var byteString = column.Cells.First().Value;
 
