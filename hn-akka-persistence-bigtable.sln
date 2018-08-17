@@ -5,13 +5,13 @@ VisualStudioVersion = 15.0.26124.0
 MinimumVisualStudioVersion = 15.0.26124.0
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{936FD4FF-D9CE-483A-9F50-26D1E5DF2A17}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hafslund.Akka.Persistence.Bigtable", "src\Hafslund.Akka.Persistence.Bigtable\Hafslund.Akka.Persistence.Bigtable.csproj", "{62650541-AEC1-4C26-99B6-03B813E54248}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hafslund.Akka.Persistence.Bigtable", "src\Hafslund.Akka.Persistence.Bigtable\Hafslund.Akka.Persistence.Bigtable.csproj", "{62650541-AEC1-4C26-99B6-03B813E54248}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{A02C8D4F-CBE3-450D-B131-83C357DBE29A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hafslund.Akka.Persistence.Bigtable.Tests", "test\Hafslund.Akka.Persistence.Bigtable.Tests\Hafslund.Akka.Persistence.Bigtable.Tests.csproj", "{90D28228-C689-4B5E-B305-0BDC48F80C1B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hafslund.Akka.Persistence.Bigtable.Tests", "test\Hafslund.Akka.Persistence.Bigtable.Tests\Hafslund.Akka.Persistence.Bigtable.Tests.csproj", "{90D28228-C689-4B5E-B305-0BDC48F80C1B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hafslund.Akka.Persistence.Bigtable.Tests.Integration", "test\Hafslund.Akka.Persistence.Bigtable.Tests.Integration\Hafslund.Akka.Persistence.Bigtable.Tests.Integration.csproj", "{FA421F99-8D03-4341-8C5F-BA08CDBFE143}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Hafslund.Akka.Persistence.Bigtable.Tests.Integration", "test\Hafslund.Akka.Persistence.Bigtable.Tests.Integration\Hafslund.Akka.Persistence.Bigtable.Tests.Integration.csproj", "{FA421F99-8D03-4341-8C5F-BA08CDBFE143}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hafslund.Akka.Persistence.Bigtable.Tests.Performance", "test\Hafslund.Akka.Persistence.Bigtable.Tests.Performance\Hafslund.Akka.Persistence.Bigtable.Tests.Performance.csproj", "{C55EBAEA-08AD-478D-9C61-8335E7A0EBA1}"
 EndProject
@@ -23,9 +23,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{62650541-AEC1-4C26-99B6-03B813E54248}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -77,10 +74,16 @@ Global
 		{C55EBAEA-08AD-478D-9C61-8335E7A0EBA1}.Release|x86.ActiveCfg = Release|Any CPU
 		{C55EBAEA-08AD-478D-9C61-8335E7A0EBA1}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{62650541-AEC1-4C26-99B6-03B813E54248} = {936FD4FF-D9CE-483A-9F50-26D1E5DF2A17}
 		{90D28228-C689-4B5E-B305-0BDC48F80C1B} = {A02C8D4F-CBE3-450D-B131-83C357DBE29A}
 		{FA421F99-8D03-4341-8C5F-BA08CDBFE143} = {A02C8D4F-CBE3-450D-B131-83C357DBE29A}
 		{C55EBAEA-08AD-478D-9C61-8335E7A0EBA1} = {A02C8D4F-CBE3-450D-B131-83C357DBE29A}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8A2C7D39-BB04-4AD8-849F-F0D669A21A26}
 	EndGlobalSection
 EndGlobal
