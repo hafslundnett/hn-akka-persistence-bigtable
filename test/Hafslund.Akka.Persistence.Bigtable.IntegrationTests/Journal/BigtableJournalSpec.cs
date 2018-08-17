@@ -32,9 +32,9 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Journal
                     persistence {
                         publish-plugin-commands = on
                         snapshot-store {
-                            plugin = ""akka.persistence.snapshot-store.Bigtable""
+                            plugin = ""akka.persistence.journal.Bigtable""
                             Bigtable {
-                                class = ""Hafslund.Akka.Persistence.Bigtable.Snapshot.BigtableSnapshotStore, Hafslund.Akka.Persistence.Bigtable""
+                                class = ""Hafslund.Akka.Persistence.Bigtable.Journal.BigtableJournal, Hafslund.Akka.Persistence.Bigtable""
                                 plugin-dispatcher = ""akka.actor.default-dispatcher""
                                 table-name = """ + TableName + @"""
                                 auto-initialize = on
