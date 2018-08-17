@@ -1,8 +1,5 @@
 ﻿using Akka.Actor;
 using Akka.Configuration;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Hafslund.Akka.Persistence.Bigtable
 {
@@ -10,7 +7,7 @@ namespace Hafslund.Akka.Persistence.Bigtable
     ///     Used to configure the <see cref="BigtableJournal" />
     ///     and <see cref="BigtableSnapshotStore" />.
     /// </summary>
-    public sealed class BigtablePersistence : IExtension
+    public class BigtablePersistence : IExtension
     {
         public BigtablePersistence(BigtableSettings bigtableJournalSettings, BigtableSettings bigtableSnapshotSettings)
         {

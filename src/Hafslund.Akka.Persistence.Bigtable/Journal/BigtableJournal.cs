@@ -25,9 +25,12 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
         private readonly Serializer _serializer;
         private readonly ILoggingAdapter _log = Context.GetLogger();
 
-        public BigtableJournal()
+        public BigtableJournal() : this(BigtablePersistence.Get(Context.System).BigtableJournalSettings)
         {
-            var settings = BigtablePersistence.Get(Context.System).BigtableJournalSettings;
+        }
+
+        public BigtableJournal(BigtableSettings settings)
+        {
             _log.Info($"{nameof(BigtableJournal)}: constructing, with table name '{settings.TableName}'");
             _tableName = TableName.Parse(settings.TableName);
             _bigtableClient = BigtableClient.Create();

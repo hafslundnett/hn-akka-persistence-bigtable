@@ -23,9 +23,13 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
         private readonly ILoggingAdapter _log = Context.GetLogger();
         private readonly Serializer _serializer;
 
-        public BigtableSnapshotStore()
+        public BigtableSnapshotStore() : this(BigtablePersistence.Get(Context.System).BigtableSnapshotSettings)
         {
-            var settings = BigtablePersistence.Get(Context.System).BigtableSnapshotSettings;
+        }
+
+        public BigtableSnapshotStore(BigtableSettings settings)
+        {
+            
             _log.Info($"{nameof(BigtableSnapshotStore)}: constructing, with table name '{settings.TableName}'");
             _tableName = TableName.Parse(settings.TableName);
             _bigtableClient = BigtableClient.Create();
