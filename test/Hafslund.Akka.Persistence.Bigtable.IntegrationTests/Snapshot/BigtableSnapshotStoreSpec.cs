@@ -31,7 +31,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Snapshot
                         publish-plugin-commands = on
                         snapshot-store {
                             plugin = ""akka.persistence.snapshot-store.bigtable""
-                            Bigtable {
+                            bigtable {
                                 class = ""Hafslund.Akka.Persistence.Bigtable.Snapshot.BigtableSnapshotStore, Hafslund.Akka.Persistence.Bigtable""
                                 plugin-dispatcher = ""akka.actor.default-dispatcher""
                                 table-name = """ + TableName + @"""
@@ -50,7 +50,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Snapshot
 
         public void ClearTable()
         {
-            var rowRange = RowRange.Closed(new BigtableByteString(""), new BigtableByteString($"{long.MaxValue}_{long.MaxValue}"));
+            var rowRange = RowRange.Closed(new BigtableByteString(""), new BigtableByteString($"_"));
             BigtableTestUtils.DeleteRows(TableName, rowRange);
         }
     }

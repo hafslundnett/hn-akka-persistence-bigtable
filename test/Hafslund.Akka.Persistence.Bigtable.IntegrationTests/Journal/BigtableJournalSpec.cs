@@ -33,7 +33,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Journal
                         publish-plugin-commands = on
                         journal {
                             plugin = ""akka.persistence.journal.bigtable""
-                            Bigtable {
+                            bigtable {
                                 class = ""Hafslund.Akka.Persistence.Bigtable.Journal.BigtableJournal, Hafslund.Akka.Persistence.Bigtable""
                                 plugin-dispatcher = ""akka.actor.default-dispatcher""
                                 table-name = """ + TableName + @"""
@@ -50,7 +50,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Journal
 
         protected override void PreparePersistenceId(string pid)
         {
-            var rowRange = RowRange.Closed(new BigtableByteString($"{pid}_"), new BigtableByteString($"{pid}_{long.MaxValue}"));
+            var rowRange = RowRange.Closed(new BigtableByteString($"{pid}#"), new BigtableByteString($"{pid}#{long.MaxValue}"));
             BigtableTestUtils.DeleteRows(TableName, rowRange);
         }
 

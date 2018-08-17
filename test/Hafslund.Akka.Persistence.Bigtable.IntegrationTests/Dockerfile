@@ -45,7 +45,7 @@ RUN mkdir warmup \
 WORKDIR /app
 COPY . .
 
-RUN dotnet build
+RUN dotnet build test/Hafslund.Akka.Persistence.Bigtable.IntegrationTests/Hafslund.Akka.Persistence.Bigtable.IntegrationTests.csproj
 
 # Run tests
 ENV SA_KEY=""
