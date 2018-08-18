@@ -19,7 +19,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
         {
             var shardingBigtablePersistence = ShardingBigtablePersistence.Get(Sys);
             Assert.NotNull(shardingBigtablePersistence);
-            Assert.True(Sys.HasExtension<BigtablePersistence>());
+            Assert.True(Sys.HasExtension<ShardingBigtablePersistence>());
         }
 
         [Fact]

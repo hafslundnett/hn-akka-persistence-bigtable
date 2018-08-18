@@ -19,11 +19,11 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Journal
                         messagepack = ""Akka.Serialization.MessagePack.MsgPackSerializer, Akka.Serialization.MessagePack""
                     }
                     persistence {
-                        auto-start-journals = [""akka.persistence.journal.Bigtable""]
+                        auto-start-journals = [""akka.persistence.journal.bigtable""]
                         publish-plugin-commands = on
                         journal {
-                            plugin = ""akka.persistence.journal.Bigtable""
-                            Bigtable {
+                            plugin = ""akka.persistence.journal.bigtable""
+                            bigtable {
                                 class = ""Hafslund.Akka.Persistence.Bigtable.Journal.BigtableJournal, Hafslund.Akka.Persistence.Bigtable""
                                 plugin-dispatcher = ""akka.actor.default-dispatcher""
                                 table-name = """ + _tableName + @"""
