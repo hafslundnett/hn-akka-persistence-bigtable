@@ -1,4 +1,5 @@
 ﻿using Akka.Actor;
+using Akka.Configuration;
 
 namespace Hafslund.Akka.Persistence.Bigtable
 {
@@ -11,6 +12,12 @@ namespace Hafslund.Akka.Persistence.Bigtable
         public ShardingBigtablePersistence(BigtableSettings bigtableJournalSettings, BigtableSettings bigtableSnapshotSettings) : base(bigtableJournalSettings, bigtableSnapshotSettings)
         {
         }
+
+        /// <summary>
+        ///     The default HOCON configuration for <see cref="ShardingBigtablePersistence" />.
+        /// </summary>
+        public static new Config DefaultConfig =>
+            ConfigurationFactory.FromResource<ShardingBigtablePersistence>("Hafslund.Akka.Persistence.Bigtable.reference-sharding.conf");
 
         /// <summary>
         ///     Returns the <see cref="ShardingBigtablePersistence" /> instance for <see cref="system" />.

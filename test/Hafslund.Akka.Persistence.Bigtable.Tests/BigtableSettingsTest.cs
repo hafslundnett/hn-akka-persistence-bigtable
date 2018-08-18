@@ -28,7 +28,9 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
                             }
                              akka.persistence.journal.bigtable-sharding {
                                 table-name = foo
-                            }").WithFallback(BigtablePersistence.DefaultConfig);
+                            }")
+                            .WithFallback(BigtablePersistence.DefaultConfig)
+                            .WithFallback(ShardingBigtablePersistence.DefaultConfig);
 
             var journalSettings = BigtableSettings.Create(config.GetConfig("akka.persistence.journal.bigtable"));
             var shardingSettings = BigtableSettings.Create(config.GetConfig("akka.persistence.journal.bigtable-sharding"));
@@ -46,7 +48,9 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
                             }
                              akka.persistence.snapshot-store.bigtable-sharding {
                                 table-name = foo
-                            }").WithFallback(BigtablePersistence.DefaultConfig);
+                            }")
+                            .WithFallback(BigtablePersistence.DefaultConfig)
+                            .WithFallback(ShardingBigtablePersistence.DefaultConfig);
 
             var snapshotSettings = BigtableSettings.Create(config.GetConfig("akka.persistence.snapshot-store.bigtable"));
             var shardingSettings = BigtableSettings.Create(config.GetConfig("akka.persistence.snapshot-store.bigtable-sharding"));

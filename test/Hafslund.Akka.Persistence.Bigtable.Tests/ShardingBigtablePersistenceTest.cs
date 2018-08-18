@@ -25,7 +25,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
         [Fact]
         public void ShardingBigtablePersistence_DefaultConfig_ShouldLoad()
         {
-            var defaultConfig = BigtablePersistence.DefaultConfig;
+            var defaultConfig = ShardingBigtablePersistence.DefaultConfig;
             Assert.True(defaultConfig.HasPath("akka.persistence.journal.bigtable-sharding"));
             Assert.True(defaultConfig.HasPath("akka.persistence.snapshot-store.bigtable-sharding"));
         }

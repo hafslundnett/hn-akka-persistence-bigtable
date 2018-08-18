@@ -9,7 +9,7 @@ namespace Hafslund.Akka.Persistence.Bigtable
     {
         public override ShardingBigtablePersistence CreateExtension(ExtendedActorSystem system)
         {
-            system.Settings.InjectTopLevelFallback(BigtablePersistence.DefaultConfig);
+            system.Settings.InjectTopLevelFallback(ShardingBigtablePersistence.DefaultConfig);
 
             var journalSettings =
                 BigtableSettings.Create(
