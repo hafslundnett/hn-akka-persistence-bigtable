@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Akka.Event;
 using Akka.Persistence;
 using Akka.Persistence.Snapshot;
 using Akka.Serialization;
@@ -14,29 +15,37 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
     public class BigtableSnapshotStore : SnapshotStore
     {
         private static readonly Type SnapshotType = typeof(SelectedSnapshot);
-        private static string Family = "f";
-        private static ByteString SnapshotColumnQualifier = ByteString.CopyFromUtf8("s");
-        private static string RowKeySeparator = "#";
-        private BigtableClient _BigtableClient;
+        private static readonly ByteString SnapshotColumnQualifier = ByteString.CopyFromUtf8("s");
+        private static readonly string RowKeySeparator = "#";
+        private readonly string _family;
+        private readonly BigtableClient _bigtableClient;
         private readonly TableName _tableName;
-        private Serializer _serializer;
+        private readonly ILoggingAdapter _log = Context.GetLogger();
+        private readonly Serializer _serializer;
 
-        public BigtableSnapshotStore()
+        public BigtableSnapshotStore() : this(BigtablePersistence.Get(Context.System).BigtableSnapshotSettings)
         {
-            var tableNameAsString = GetTableName();
-            _tableName = TableName.Parse(tableNameAsString);
-            _BigtableClient = BigtableClient.Create();
+        }
+
+        public BigtableSnapshotStore(BigtableSettings settings)
+        {
+            
+            _log.Info($"{nameof(BigtableSnapshotStore)}: constructing, with table name '{settings.TableName}'");
+            _tableName = TableName.Parse(settings.TableName);
+            _family = settings.FamilyName;
+            _bigtableClient = BigtableClient.Create();
             _serializer = Context.System.Serialization.FindSerializerForType(SnapshotType);
         }
 
-        protected virtual string GetTableName()
+        protected override void PreStart()
         {
-            return Context.System.Settings.Config.GetConfig("akka.persistence.snapshot-store.bigtable").GetString("table-name");
+            _log.Info("Initializing Bigtable Snapshot Storage...");
+            base.PreStart();
         }
 
         protected override async Task DeleteAsync(SnapshotMetadata metadata)
         {
-            await _BigtableClient.MutateRowAsync(
+            await _bigtableClient.MutateRowAsync(
                 _tableName,
                 GetRowKey(metadata.PersistenceId, metadata.SequenceNr),
                 new List<Mutation> { Mutations.DeleteFromRow() }).ConfigureAwait(false);
@@ -48,7 +57,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             var startKey = GetRowKey(persistenceId, criteria.MinSequenceNr);
             var endKey = GetRowKey(persistenceId, criteria.MaxSequenceNr);
 
-            var rows = await _BigtableClient.ReadClosedRowRangeAsync(_tableName, startKey, endKey).ConfigureAwait(false);
+            var rows = await _bigtableClient.ReadClosedRowRangeAsync(_tableName, startKey, endKey).ConfigureAwait(false);
 
             var deletes = rows.Select(PersistentFromBigtableRow)
                 .Where(p => SatisfiesCriteria(criteria, p))
@@ -56,7 +65,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
 
             if (deletes.Any())
             {
-                await _BigtableClient.MutateRowsAsync(_tableName, deletes).ConfigureAwait(false);
+                await _bigtableClient.MutateRowsAsync(_tableName, deletes).ConfigureAwait(false);
             }
         }
 
@@ -65,13 +74,12 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             var startKey = GetRowKey(persistenceId, criteria.MinSequenceNr);
             var endKey = GetRowKey(persistenceId, criteria.MaxSequenceNr);
 
-            var rows = await _BigtableClient.ReadClosedRowRangeAsync(_tableName, startKey, endKey).ConfigureAwait(false);
+            var rows = await _bigtableClient.ReadClosedRowRangeAsync(_tableName, startKey, endKey).ConfigureAwait(false);
 
             var selectedSnapshot = rows.Select(PersistentFromBigtableRow)
                 .OrderByDescending(persistent => persistent.Metadata.SequenceNr)
                 .ThenByDescending(persistent => persistent.Metadata.Timestamp)
-                .Where(persistent => SatisfiesCriteria(criteria, persistent))
-                .FirstOrDefault();
+                .FirstOrDefault(persistent => SatisfiesCriteria(criteria, persistent));
 
             return selectedSnapshot;
         }
@@ -90,9 +98,9 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             var bytes = PersistentToBytes(metadata, snapshot);
             var request = new MutateRowRequest();
             request.TableNameAsTableName = _tableName;
-            request.Mutations.Add(Mutations.SetCell(Family, SnapshotColumnQualifier, ByteString.CopyFrom(bytes), new BigtableVersion(-1)));
+            request.Mutations.Add(Mutations.SetCell(_family, SnapshotColumnQualifier, ByteString.CopyFrom(bytes), new BigtableVersion(-1)));
             request.RowKey = GetRowKey(metadata.PersistenceId, metadata.SequenceNr);
-            await _BigtableClient.MutateRowAsync(request).ConfigureAwait(false);
+            await _bigtableClient.MutateRowAsync(request).ConfigureAwait(false);
         }
 
         private byte[] PersistentToBytes(SnapshotMetadata metadata, object snapshot)
@@ -103,7 +111,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
         private SelectedSnapshot PersistentFromBigtableRow(Row BigtableRow)
         {
             var bytes = BigtableRow.Families
-                .Single(f => f.Name.Equals(Family)).Columns
+                .Single(f => f.Name.Equals(_family)).Columns
                 .Single(c => c.Qualifier.Equals(SnapshotColumnQualifier)).Cells
                 .First().Value.ToArray();
 

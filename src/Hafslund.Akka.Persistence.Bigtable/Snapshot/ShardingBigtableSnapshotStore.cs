@@ -2,9 +2,8 @@
 {
     public class ShardingBigtableSnapshotStore : BigtableSnapshotStore
     {
-        protected override string GetTableName()
+        public ShardingBigtableSnapshotStore() : base(ShardingBigtablePersistence.Get(Context.System).BigtableSnapshotSettings)
         {
-            return Context.System.Settings.Config.GetConfig("akka.persistence.snapshot-store.Bigtable-sharding").GetString("table-name");
         }
     }
 }

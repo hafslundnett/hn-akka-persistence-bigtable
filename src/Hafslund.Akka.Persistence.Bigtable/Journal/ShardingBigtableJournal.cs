@@ -2,9 +2,8 @@
 {
     public class ShardingBigtableJournal : BigtableJournal
     {
-        protected override string GetTableName()
+        public ShardingBigtableJournal() : base(ShardingBigtablePersistence.Get(Context.System).BigtableJournalSettings)
         {
-            return Context.System.Settings.Config.GetConfig("akka.persistence.journal.Bigtable-sharding").GetString("table-name");
         }
     }
 }
