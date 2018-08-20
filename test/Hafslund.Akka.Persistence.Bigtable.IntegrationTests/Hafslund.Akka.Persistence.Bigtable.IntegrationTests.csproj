@@ -21,4 +21,10 @@
     <ProjectReference Include="..\..\src\Hafslund.Akka.Persistence.Bigtable\Hafslund.Akka.Persistence.Bigtable.csproj" />
   </ItemGroup>
 
+<ItemGroup>
+  <Content Include="xunit.runner.json">
+    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+  </Content>
+</ItemGroup>
+
 </Project>
