@@ -50,7 +50,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Snapshot
 
         public void ClearTable()
         {
-            var rowRange = RowRange.Closed(new BigtableByteString(""), new BigtableByteString($"_"));
+            var rowRange = RowRange.Closed(new BigtableByteString("p-"), new BigtableByteString("p-~"));
             BigtableTestUtils.DeleteRows(TableName, rowRange);
         }
     }
