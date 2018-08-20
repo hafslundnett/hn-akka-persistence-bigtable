@@ -14,7 +14,7 @@ BigtablePersistence.Get(actorSystem);
 
 ## Setup
 
-The extension will load default configuration (see `reference.conf` from plugin source code), but as a minimum, the tablename has to be specified. There is no option to feed in a connection string for the table, as this is not how the Google Cloud SDK is set up to authenticate, see 
+The extension will load default configuration (see `reference.conf` from plugin source code), but as a minimum, the tablename has to be specified. There is no option to feed in a connection string for the table, as this is not how the Google Cloud SDK is set up to authenticate, see https://cloud.google.com/bigtable/docs/reference/libraries.
 
 To activate the journal plugin, add the following lines to your actor system configuration file:
 ```HOCON
