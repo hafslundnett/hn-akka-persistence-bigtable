@@ -13,10 +13,12 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
                 BigtableSettings.Create(
                     ConfigurationFactory.ParseString(@"akka.persistence.snapshot-store.bigtable {
                         table-name = foo
+                        family-name = bar
                     }").WithFallback(BigtablePersistence.DefaultConfig)
                         .GetConfig("akka.persistence.snapshot-store.bigtable"));
 
             Assert.Equal("foo", snapshotSettings.TableName);
+            Assert.Equal("bar", snapshotSettings.FamilyName);
         }
 
         [Fact]
@@ -25,9 +27,11 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
             var config = ConfigurationFactory.ParseString(
                             @"akka.persistence.journal.bigtable {
                                 table-name = bar
+                                family-name = jalla
                             }
                              akka.persistence.journal.bigtable-sharding {
                                 table-name = foo
+                                family-name = baz
                             }")
                             .WithFallback(BigtablePersistence.DefaultConfig)
                             .WithFallback(ShardingBigtablePersistence.DefaultConfig);
@@ -37,6 +41,8 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
 
             Assert.Equal("bar", journalSettings.TableName);
             Assert.Equal("foo", shardingSettings.TableName);
+            Assert.Equal("jalla", journalSettings.FamilyName);
+            Assert.Equal("baz", shardingSettings.FamilyName);
         }
 
         [Fact]
@@ -45,9 +51,11 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
             var config = ConfigurationFactory.ParseString(
                             @"akka.persistence.snapshot-store.bigtable {
                                 table-name = bar
+                                family-name = jalla
                             }
                              akka.persistence.snapshot-store.bigtable-sharding {
                                 table-name = foo
+                                family-name = baz
                             }")
                             .WithFallback(BigtablePersistence.DefaultConfig)
                             .WithFallback(ShardingBigtablePersistence.DefaultConfig);
@@ -57,6 +65,8 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
 
             Assert.Equal("bar", snapshotSettings.TableName);
             Assert.Equal("foo", shardingSettings.TableName);
+            Assert.Equal("jalla", snapshotSettings.FamilyName);
+            Assert.Equal("baz", shardingSettings.FamilyName);
         }
     }
 }

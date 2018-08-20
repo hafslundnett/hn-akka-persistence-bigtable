@@ -40,7 +40,12 @@ cbt createtable MySnapshotStore
 cbt createfamily MySnapshotStore f
 ```
 
-Note that the family name `f` is, in addition to being short and sweet, hard coded in the plugin. If the table is not created with a column family named `f`, nothing will be persisted.
+Note that the family name `f` is the default configuration in the plugin if not otherwise specified. If the table is not created with a column family matching the configuration, nothing will be persisted. To override the default column family name in config, set the following HOCON config property:
+
+```HOCON
+akka.persistence.journal.bigtable.family-name = otherfamily
+akka.persistence.snapshot-store.bigtable.family-name = otherfamily
+```
 
 ## Sharding Setup
 
@@ -70,6 +75,12 @@ akka.persistence.journal.bigtable-sharding.table-name = "your/bigtable-sharding/
 akka.persistence.snapshot-store.bigtable-sharding.table-name = "your/bigtable-sharding/table/reference"
 
 ```
+If you are using a column family name other than the default `f`, remember to also set the following:
+
+```hocon
+akka.persistence.journal.bigtable-sharding.family-name = otherfamily
+akka.persistence.snapshot-store.bigtable-sharding.family-name = otherfamily
+```
 
 
 ## Configuration
@@ -89,6 +100,9 @@ akka.persistence {
 	    # (full name, i.e. 'projects/<project-id>/instances/<instance-id>/tables/<table-name> )
 	    table-name = ""
 
+	    # Column family name:
+	    family-name = "f"
+
 	    # dispatcher used to drive journal actor
 	    plugin-dispatcher = "akka.actor.default-dispatcher"
     }
@@ -101,6 +115,9 @@ akka.persistence {
 	    # (full name, i.e. 'projects/<project-id>/instances/<instance-id>/tables/<table-name> )
 	    table-name = ""
 
+	    # Column family name:
+	    family-name = "f"
+	    
 	    # dispatcher used to drive journal actor
 	    plugin-dispatcher = "akka.actor.default-dispatcher"
     }
@@ -116,6 +133,9 @@ akka.persistence {
 	    # the name of the Google Bigtable used to persist snapshots
 	    # (full name, i.e. 'projects/<project-id>/instances/<instance-id>/tables/<table-name> )
 	    table-name = ""
+	    
+	    # Column family name:
+	    family-name = "f"
 
 	    # dispatcher used to drive snapshot storage actor
 	    plugin-dispatcher = "akka.actor.default-dispatcher"
@@ -128,6 +148,9 @@ akka.persistence {
 	    # the name of the Google Bigtable used to persist snapshots
 	    # (full name, i.e. 'projects/<project-id>/instances/<instance-id>/tables/<table-name> )
 	    table-name = ""
+
+	    # Column family name:
+	    family-name = "f"
 
 	    # dispatcher used to drive snapshot storage actor
 	    plugin-dispatcher = "akka.actor.default-dispatcher"

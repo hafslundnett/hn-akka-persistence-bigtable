@@ -13,15 +13,23 @@ namespace Hafslund.Akka.Persistence.Bigtable
         /// <example>projects/[project-id]/instances/[instance-id]/tables/[table-name]</example>
         public string TableName { get; }
 
-        protected BigtableSettings(string tableName)
+        /// <summary>
+        /// The name of the column familiy
+        /// </summary>
+        /// <example>f</example>
+        public string FamilyName { get; }
+
+        protected BigtableSettings(string tableName, string familyName)
         {
             TableName = tableName;
+            FamilyName = familyName;
         }
 
         public static BigtableSettings Create(Config config)
         {
             var tableName = config.GetString("table-name");
-            return new BigtableSettings(tableName);
+            var famliy = config.GetString("family-name");
+            return new BigtableSettings(tableName, famliy);
         }
     }
 }

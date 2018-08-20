@@ -15,9 +15,9 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
     public class BigtableSnapshotStore : SnapshotStore
     {
         private static readonly Type SnapshotType = typeof(SelectedSnapshot);
-        private static readonly string Family = "f";
         private static readonly ByteString SnapshotColumnQualifier = ByteString.CopyFromUtf8("s");
         private static readonly string RowKeySeparator = "#";
+        private readonly string _family;
         private readonly BigtableClient _bigtableClient;
         private readonly TableName _tableName;
         private readonly ILoggingAdapter _log = Context.GetLogger();
@@ -32,6 +32,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             
             _log.Info($"{nameof(BigtableSnapshotStore)}: constructing, with table name '{settings.TableName}'");
             _tableName = TableName.Parse(settings.TableName);
+            _family = settings.FamilyName;
             _bigtableClient = BigtableClient.Create();
             _serializer = Context.System.Serialization.FindSerializerForType(SnapshotType);
         }
@@ -97,7 +98,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             var bytes = PersistentToBytes(metadata, snapshot);
             var request = new MutateRowRequest();
             request.TableNameAsTableName = _tableName;
-            request.Mutations.Add(Mutations.SetCell(Family, SnapshotColumnQualifier, ByteString.CopyFrom(bytes), new BigtableVersion(-1)));
+            request.Mutations.Add(Mutations.SetCell(_family, SnapshotColumnQualifier, ByteString.CopyFrom(bytes), new BigtableVersion(-1)));
             request.RowKey = GetRowKey(metadata.PersistenceId, metadata.SequenceNr);
             await _bigtableClient.MutateRowAsync(request).ConfigureAwait(false);
         }
@@ -110,7 +111,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
         private SelectedSnapshot PersistentFromBigtableRow(Row BigtableRow)
         {
             var bytes = BigtableRow.Families
-                .Single(f => f.Name.Equals(Family)).Columns
+                .Single(f => f.Name.Equals(_family)).Columns
                 .Single(c => c.Qualifier.Equals(SnapshotColumnQualifier)).Cells
                 .First().Value.ToArray();
 

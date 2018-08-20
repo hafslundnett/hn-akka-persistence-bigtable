@@ -17,9 +17,9 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
     public class BigtableJournal : AsyncWriteJournal
     {
         private static readonly Type PersistentRepresentationType = typeof (IPersistentRepresentation);
-        private static readonly string Family = "f";
         private static readonly ByteString PayloadColumnQualifier = ByteString.CopyFromUtf8("p");
         private static readonly string RowKeySeparator = "#";
+        private readonly string _family;
         private readonly BigtableClient _bigtableClient;
         private readonly TableName _tableName;
         private readonly Serializer _serializer;
@@ -33,6 +33,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
         {
             _log.Info($"{nameof(BigtableJournal)}: constructing, with table name '{settings.TableName}'");
             _tableName = TableName.Parse(settings.TableName);
+            _family = settings.FamilyName;
             _bigtableClient = BigtableClient.Create();
             _serializer = Context.System.Serialization.FindSerializerForType(PersistentRepresentationType);
         }
@@ -105,7 +106,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
             {
                 var last = deleteEntries.LastOrDefault();
                 deleteEntries.RemoveAt(deleteEntries.Count - 1);
-                deleteEntries.Add(Mutations.CreateEntry(last.RowKey, Mutations.SetCell(Family, PayloadColumnQualifier, ByteString.Empty, new BigtableVersion(-1))));
+                deleteEntries.Add(Mutations.CreateEntry(last.RowKey, Mutations.SetCell(_family, PayloadColumnQualifier, ByteString.Empty, new BigtableVersion(-1))));
                 await _bigtableClient.MutateRowsAsync(_tableName, deleteEntries);
             }
         }
@@ -158,7 +159,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
 
         private IPersistentRepresentation ToPersistentRepresentation(Row BigtableRow)
         {
-            var columnFamily = BigtableRow.Families.First(f => f.Name == Family);
+            var columnFamily = BigtableRow.Families.First(f => f.Name == _family);
             var column = columnFamily.Columns.Single(c => c.Qualifier.Equals(PayloadColumnQualifier));
             var byteString = column.Cells.First().Value;
 
@@ -175,7 +176,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
             var entry = new MutateRowsRequest.Types.Entry();
             entry.RowKey = ByteString.CopyFromUtf8(ToRowKeyString(persistent.PersistenceId, persistent.SequenceNr));
             var payload = PersistentToBytes(persistent);
-            entry.Mutations.Add(Mutations.SetCell(Family, PayloadColumnQualifier, payload, new BigtableVersion(-1)));
+            entry.Mutations.Add(Mutations.SetCell(_family, PayloadColumnQualifier, payload, new BigtableVersion(-1)));
             return entry;
         }
     }

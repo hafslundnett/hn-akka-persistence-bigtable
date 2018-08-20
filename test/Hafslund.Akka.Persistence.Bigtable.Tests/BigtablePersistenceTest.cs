@@ -15,6 +15,8 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
 
             Assert.Empty(bigtablePersistence.BigtableJournalSettings.TableName);
             Assert.Empty(bigtablePersistence.BigtableSnapshotSettings.TableName);
+            Assert.Equal("f", bigtablePersistence.BigtableJournalSettings.FamilyName);
+            Assert.Equal("f", bigtablePersistence.BigtableSnapshotSettings.FamilyName);
         }
 
         [Fact]
