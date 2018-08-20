@@ -12,6 +12,13 @@ BigtablePersistence.Get(actorSystem);
 ```
 (Note that this is similar to how the Cluster extension is set up, e.g. `Cluster.Get(actorSystem)`).
 
+If it is preferred to load the extension from config instead of through code, specify the FQCNs for the Journal and Snasphot store classes in HOCON:
+
+```HOCON
+akka.persistence.journal.bigtable.class = "Hafslund.Akka.Persistence.Bigtable.Snapshot.BigtableJournal, Hafslund.Akka.Persistence.Bigtable"
+akka.persistence.snapshot-store.bigtable.class = "Hafslund.Akka.Persistence.Bigtable.Snapshot.BigtableSnapshotStore, Hafslund.Akka.Persistence.Bigtable"
+```
+
 ## Setup
 
 The extension will load default configuration (see `reference.conf` from plugin source code), but as a minimum, the tablename has to be specified. There is no option to feed in a connection string for the table, as this is not how the Google Cloud SDK is set up to authenticate, see https://cloud.google.com/bigtable/docs/reference/libraries.
@@ -62,6 +69,14 @@ If you want to instantiate a different instance for sharding events and snapshot
 ```C#
 ShardingBigtablePersistence.Get(actorSystem);
 ```
+
+If it is preferred to load the extension from config instead of through code, specify the FQCNs for the Journal and Snapshot steore classes specific for sharding in HOCON:
+
+```HOCON
+akka.persistence.journal.bigtable.class = "Hafslund.Akka.Persistence.Bigtable.Journal.ShardingBigtableJournal, Hafslund.Akka.Persistence.Bigtable"
+akka.persistence.snapshot-store.bigtable.class = "Hafslund.Akka.Persistence.Bigtable.Snapshot.ShardingBigtableSnapshotStore, Hafslund.Akka.Persistence.Bigtable"
+```
+
 
 Then make sure the following changes to your HOCON:
 ```hocon
