@@ -18,7 +18,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
         private static readonly Type PersistentRepresentationType = typeof (IPersistentRepresentation);
         private static string Family = "f";
         private static ByteString PayloadColumnQualifier = ByteString.CopyFromUtf8("p");
-        public static string RowKeySeparator = "#";
+        public static char RowKeySeparator = '#';
         private BigtableClient _BigtableClient;
         private readonly TableName _tableName;
         private Serializer _serializer;
@@ -121,11 +121,11 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
             return exceptions;
         }
 
-        private static long GetSequenceNumber(Row BigtableRow)
+        private static long GetSequenceNumber(Row bigtableRow)
         {
-            // Note: String.Split(String, Int32) does not exist in .NET Standard 2.0. Converting to char array:
-            var parts = BigtableRow.Key.ToStringUtf8().Split(RowKeySeparator.ToArray(), 2);
-            return long.Parse(parts[1]);
+            var rowKeyString = bigtableRow.Key.ToStringUtf8();
+            var from = rowKeyString.LastIndexOf(RowKeySeparator) + 1;
+            return long.Parse(rowKeyString.Substring(from));
         }
 
         private static string ToRowKeyString(string persistenceId, long sequenceNumber)
