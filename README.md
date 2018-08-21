@@ -1,7 +1,7 @@
 # Hafslund.Akka.Persistence.Bigtable
 
 ## Installation
-This plugin is (supposed to) be released publicly to nuget.org, and the latest released version can be installed by:
+This plugin is released publicly to nuget.org, and the latest released version can be installed by:
 ```CMD
 dotnet add package Hafslund.Akka.Persistence.Bigtable
 ```
