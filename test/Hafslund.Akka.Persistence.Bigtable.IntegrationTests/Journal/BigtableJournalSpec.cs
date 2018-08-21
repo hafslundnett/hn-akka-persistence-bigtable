@@ -61,7 +61,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Journal
 
         protected override void PreparePersistenceId(string pid)
         {
-            var rowRange = RowRange.Closed(new BigtableByteString($"{pid}#"), new BigtableByteString($"{pid}#{long.MaxValue}"));
+            var rowRange = RowRange.Closed(new BigtableByteString($"{pid}"), new BigtableByteString($"{pid}~"));
             BigtableTestUtils.DeleteRows(TableName, rowRange);
         }
 

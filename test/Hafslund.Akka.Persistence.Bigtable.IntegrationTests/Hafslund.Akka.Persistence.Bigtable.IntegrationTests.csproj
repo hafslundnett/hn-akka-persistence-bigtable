@@ -29,9 +29,9 @@
   <Content Include="xunit.runner.json">
     <CopyToOutputDirectory>Always</CopyToOutputDirectory>
   </Content>
-    <Content Include="appsettings.Development.json">
+  <None Update="appsettings.Development.json">
     <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-  </Content>
+  </None>
 </ItemGroup>
 
 </Project>

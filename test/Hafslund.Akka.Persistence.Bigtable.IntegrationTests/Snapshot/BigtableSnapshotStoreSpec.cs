@@ -12,7 +12,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Snapshot
     {
         private readonly static string TableName;
         private static readonly Config SpecConfig;
-        
+
         public static IConfigurationRoot ReadConfig()
         {
             return new ConfigurationBuilder()
@@ -25,7 +25,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Snapshot
         {
             var config = ReadConfig();
 
-            var timeFactor= int.Parse(config.GetValue("INTEGRATION_TEST_TIME_FACTOR", "1"));
+            var timeFactor = int.Parse(config.GetValue("INTEGRATION_TEST_TIME_FACTOR", "1"));
             Console.WriteLine($"BigtableSnapshotStoreSpec timefactor: {timeFactor}");
 
             TableName = config.GetValue("INTEGRATION_TEST_SNAPSHOT_STORE_TABLE", "NOT_SET");
@@ -58,9 +58,9 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Snapshot
             Initialize();
         }
 
-        public void ClearTable()
+        private void ClearTable()
         {
-            var rowRange = RowRange.Closed(new BigtableByteString("p-"), new BigtableByteString("p-~"));
+            var rowRange = RowRange.Closed(new BigtableByteString($"{Pid}"), new BigtableByteString($"{Pid}~"));
             BigtableTestUtils.DeleteRows(TableName, rowRange);
         }
     }
