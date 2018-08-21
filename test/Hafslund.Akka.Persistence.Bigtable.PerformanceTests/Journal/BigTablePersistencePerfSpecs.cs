@@ -1,14 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Akka.Actor;
+﻿using Akka.Actor;
 using Akka.Configuration;
 using Akka.Util.Internal;
 using Google.Cloud.Bigtable.Common.V2;
 using Google.Cloud.Bigtable.V2;
 using NBench;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace AkkaIntegration.Tests.Performance.Persistence
 {
@@ -24,7 +23,7 @@ namespace AkkaIntegration.Tests.Performance.Persistence
 
         private static string _tableName = Environment.GetEnvironmentVariable("PERFORMANCE_TEST_JOURNAL_TABLE");
 
-        private static readonly Akka.Configuration.Config SpecConfig =
+        private static readonly Config SpecConfig =
             ConfigurationFactory.ParseString(@"
 
                 akka {
@@ -55,7 +54,7 @@ namespace AkkaIntegration.Tests.Performance.Persistence
 
         private ActorSystem ActorSystem { get; set; }
 
-        private List<IActorRef> _persistentActors = new List<IActorRef>(PersistentActorCount);
+        private readonly List<IActorRef> _persistentActors = new List<IActorRef>(PersistentActorCount);
 
         [PerfSetup]
         public void Setup(BenchmarkContext context)
