@@ -6,6 +6,8 @@ using Google.Cloud.Bigtable.V2;
 using Akka.Configuration;
 using System;
 using Hafslund.Akka.Persistence.Bigtable.IntegrationTests;
+using Microsoft.Extensions.Configuration;
+using Xunit;
 
 namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Journal
 {
@@ -14,13 +16,22 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Journal
         private readonly static string TableName;
         private static readonly Config SpecConfig;
 
+        public static IConfigurationRoot ReadConfig()
+        {
+            return new ConfigurationBuilder()
+                .AddJsonFile("appsettings.Development.json", optional: true)
+                .AddEnvironmentVariables()
+                .Build();
+        }
+
         static BigtableJournalSpec()
         {
-            var timefactorString = Environment.GetEnvironmentVariable("INTEGRATION_TEST_TIME_FACTOR");
-            var timeFactor = timefactorString == null ? 1 : int.Parse(timefactorString);
-            Console.WriteLine($"BigtableJournalSpec timefactor: {timeFactor}");
+            var config = ReadConfig();
 
-            TableName = Environment.GetEnvironmentVariable("INTEGRATION_TEST_JOURNAL_TABLE");
+            var timeFactor= int.Parse(config.GetValue("INTEGRATION_TEST_TIME_FACTOR", "1"));
+            Console.WriteLine($"BigtableSnapshotStoreSpec timefactor: {timeFactor}");
+
+            TableName = config.GetValue("INTEGRATION_TEST_JOURNAL_TABLE", "NOT_SET");
             Console.WriteLine($"BigtableJournalSpec bigtable table: {TableName}");
 
             SpecConfig = ConfigurationFactory.ParseString($"akka.test.timefactor={timeFactor}")
@@ -50,7 +61,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Journal
 
         protected override void PreparePersistenceId(string pid)
         {
-            var rowRange = RowRange.Closed(new BigtableByteString($"{pid}#"), new BigtableByteString($"{pid}#{long.MaxValue}"));
+            var rowRange = RowRange.Closed(new BigtableByteString($"{pid}"), new BigtableByteString($"{pid}~"));
             BigtableTestUtils.DeleteRows(TableName, rowRange);
         }
 
