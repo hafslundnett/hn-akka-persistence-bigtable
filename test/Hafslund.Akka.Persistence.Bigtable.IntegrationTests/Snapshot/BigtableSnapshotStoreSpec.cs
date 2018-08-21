@@ -4,6 +4,7 @@ using Akka.Persistence.TCK.Snapshot;
 using Google.Cloud.Bigtable.Common.V2;
 using Google.Cloud.Bigtable.V2;
 using Hafslund.Akka.Persistence.Bigtable.IntegrationTests;
+using Microsoft.Extensions.Configuration;
 
 namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Snapshot
 {
@@ -11,14 +12,23 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Snapshot
     {
         private readonly static string TableName;
         private static readonly Config SpecConfig;
+        
+        public static IConfigurationRoot ReadConfig()
+        {
+            return new ConfigurationBuilder()
+                .AddJsonFile("appsettings.Development.json", optional: true)
+                .AddEnvironmentVariables()
+                .Build();
+        }
 
         static BigtableSnapshotStoreSpec()
         {
-            var timefactorString = Environment.GetEnvironmentVariable("INTEGRATION_TEST_TIME_FACTOR");
-            var timeFactor = timefactorString == null ? 1 : int.Parse(timefactorString);
+            var config = ReadConfig();
+
+            var timeFactor= int.Parse(config.GetValue("INTEGRATION_TEST_TIME_FACTOR", "1"));
             Console.WriteLine($"BigtableSnapshotStoreSpec timefactor: {timeFactor}");
 
-            TableName = Environment.GetEnvironmentVariable("INTEGRATION_TEST_SNAPSHOT_STORE_TABLE");
+            TableName = config.GetValue("INTEGRATION_TEST_SNAPSHOT_STORE_TABLE", "NOT_SET");
             Console.WriteLine($"BigtableSnapshotStoreSpec bigtable table: {TableName}");
 
             SpecConfig = ConfigurationFactory.ParseString($"akka.test.timefactor={timeFactor}")
