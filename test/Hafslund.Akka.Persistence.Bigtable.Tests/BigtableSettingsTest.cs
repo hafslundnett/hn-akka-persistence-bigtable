@@ -9,6 +9,21 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
     public class BigtableSettingsTest : TestKit
     {
         [Fact]
+        public void ShouldParseDefaultJournalConfig()
+        {
+            var journalSettings =
+                BigtableJournalSettings.Create(
+                    ConfigurationFactory.ParseString(@"akka.persistence.journal.bigtable {
+                        table-name = foo
+                        family-name = bar
+                    }").WithFallback(BigtablePersistence.DefaultConfig)
+                        .GetConfig("akka.persistence.journal.bigtable"));
+
+            Assert.Equal("foo", journalSettings.TableName);
+            Assert.Equal("bar", journalSettings.FamilyName);
+        }
+
+        [Fact]
         public void ShouldParseDefaultSnapshotConfig()
         {
             var snapshotSettings =
