@@ -1,5 +1,6 @@
 ﻿using Akka.Actor;
 using Hafslund.Akka.Persistence.Bigtable.Journal;
+using Hafslund.Akka.Persistence.Bigtable.Snapshot;
 
 namespace Hafslund.Akka.Persistence.Bigtable
 {
@@ -16,8 +17,8 @@ namespace Hafslund.Akka.Persistence.Bigtable
                 BigtableJournalSettings.Create(
                     system.Settings.Config.GetConfig("akka.persistence.journal.bigtable-sharding"));
 
-            var snapshotSettings =
-                BigtableSnasphotSettings.Create(
+            var snapshotSettings = 
+                BigtableSnapshotSettings.Create(
                     system.Settings.Config.GetConfig("akka.persistence.snapshot-store.bigtable-sharding"));
 
             return new ShardingBigtablePersistence(journalSettings, snapshotSettings);

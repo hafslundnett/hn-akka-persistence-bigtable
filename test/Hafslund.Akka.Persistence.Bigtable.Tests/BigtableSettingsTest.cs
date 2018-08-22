@@ -1,6 +1,7 @@
 ﻿using Akka.Configuration;
 using Akka.TestKit.Xunit2;
 using Hafslund.Akka.Persistence.Bigtable.Journal;
+using Hafslund.Akka.Persistence.Bigtable.Snapshot;
 using Xunit;
 
 namespace Hafslund.Akka.Persistence.Bigtable.Tests
@@ -11,7 +12,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
         public void ShouldParseDefaultSnapshotConfig()
         {
             var snapshotSettings =
-                BigtableSnasphotSettings.Create(
+                BigtableSnapshotSettings.Create(
                     ConfigurationFactory.ParseString(@"akka.persistence.snapshot-store.bigtable {
                         table-name = foo
                         family-name = bar
@@ -61,8 +62,8 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
                             .WithFallback(BigtablePersistence.DefaultConfig)
                             .WithFallback(ShardingBigtablePersistence.DefaultConfig);
 
-            var snapshotSettings = BigtableSnasphotSettings.Create(config.GetConfig("akka.persistence.snapshot-store.bigtable"));
-            var shardingSettings = BigtableSnasphotSettings.Create(config.GetConfig("akka.persistence.snapshot-store.bigtable-sharding"));
+            var snapshotSettings = BigtableSnapshotSettings.Create(config.GetConfig("akka.persistence.snapshot-store.bigtable"));
+            var shardingSettings = BigtableSnapshotSettings.Create(config.GetConfig("akka.persistence.snapshot-store.bigtable-sharding"));
 
             Assert.Equal("bar", snapshotSettings.TableName);
             Assert.Equal("foo", shardingSettings.TableName);

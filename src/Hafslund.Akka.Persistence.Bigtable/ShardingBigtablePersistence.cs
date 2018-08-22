@@ -1,6 +1,7 @@
 ﻿using Akka.Actor;
 using Akka.Configuration;
 using Hafslund.Akka.Persistence.Bigtable.Journal;
+using Hafslund.Akka.Persistence.Bigtable.Snapshot;
 
 namespace Hafslund.Akka.Persistence.Bigtable
 {
@@ -10,7 +11,7 @@ namespace Hafslund.Akka.Persistence.Bigtable
     /// </summary>
     public sealed class ShardingBigtablePersistence : BigtablePersistence
     {
-        public ShardingBigtablePersistence(BigtableJournalSettings bigtableJournalSettings, BigtableSnasphotSettings bigtableSnapshotSettings) : base(bigtableJournalSettings, bigtableSnapshotSettings)
+        public ShardingBigtablePersistence(BigtableJournalSettings bigtableJournalSettings, BigtableSnapshotSettings bigtableSnapshotSettings) : base(bigtableJournalSettings, bigtableSnapshotSettings)
         {
         }
 

@@ -1,4 +1,6 @@
 ﻿using Akka.Actor;
+using Hafslund.Akka.Persistence.Bigtable.Journal;
+using Hafslund.Akka.Persistence.Bigtable.Snapshot;
 
 namespace Hafslund.Akka.Persistence.Bigtable
 {
@@ -12,11 +14,11 @@ namespace Hafslund.Akka.Persistence.Bigtable
             system.Settings.InjectTopLevelFallback(BigtablePersistence.DefaultConfig);
 
             var journalSettings =
-                BigtableSettings.Create(
+                BigtableJournalSettings.Create(
                     system.Settings.Config.GetConfig("akka.persistence.journal.bigtable"));
 
             var snapshotSettings =
-                BigtableSettings.Create(
+                BigtableSnapshotSettings.Create(
                     system.Settings.Config.GetConfig("akka.persistence.snapshot-store.bigtable"));
 
             return new BigtablePersistence(journalSettings, snapshotSettings);

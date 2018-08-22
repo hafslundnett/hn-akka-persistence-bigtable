@@ -2,7 +2,7 @@
 
 namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
 {
-    public class BigtableSnapshotSettings : BigtableSnasphotSettings
+    public class BigtableSnapshotSettings : BigtableSettings
     {
         protected BigtableSnapshotSettings(string tableName, string familyName) : base(tableName, familyName)
         {
@@ -10,7 +10,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
 
         public new static BigtableSnapshotSettings Create(Config config)
         {
-            return (BigtableSnapshotSettings)BigtableSnasphotSettings.Create(config);
+            return (BigtableSnapshotSettings)BigtableSettings.Create(config);
         }
     }
 }

@@ -2,7 +2,7 @@
 
 namespace Hafslund.Akka.Persistence.Bigtable.Journal
 {
-    public class BigtableJournalSettings : BigtableSnasphotSettings
+    public class BigtableJournalSettings : BigtableSettings
     {
         protected BigtableJournalSettings(string tableName, string familyName) : base(tableName, familyName)
         {
@@ -10,7 +10,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
 
         public new static BigtableJournalSettings Create(Config config)
         {
-            return (BigtableJournalSettings)BigtableSnasphotSettings.Create(config);
+            return (BigtableJournalSettings)BigtableSettings.Create(config);
         }
     }
 }
