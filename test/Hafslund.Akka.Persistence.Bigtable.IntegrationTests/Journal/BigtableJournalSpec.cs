@@ -1,13 +1,10 @@
-using System.Collections.Generic;
-using System.Linq;
+using Akka.Configuration;
 using Akka.Persistence.TCK.Journal;
 using Google.Cloud.Bigtable.Common.V2;
 using Google.Cloud.Bigtable.V2;
-using Akka.Configuration;
-using System;
 using Hafslund.Akka.Persistence.Bigtable.IntegrationTests;
 using Microsoft.Extensions.Configuration;
-using Xunit;
+using System;
 
 namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Journal
 {
