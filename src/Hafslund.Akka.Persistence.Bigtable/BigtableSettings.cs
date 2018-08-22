@@ -25,11 +25,8 @@ namespace Hafslund.Akka.Persistence.Bigtable
             FamilyName = familyName;
         }
 
-        public static BigtableSettings Create(Config config)
+        protected BigtableSettings(Config config) : this(config.GetString("table-name"), config.GetString("family-name"))
         {
-            var tableName = config.GetString("table-name");
-            var famliy = config.GetString("family-name");
-            return new BigtableSettings(tableName, famliy);
         }
     }
 }
