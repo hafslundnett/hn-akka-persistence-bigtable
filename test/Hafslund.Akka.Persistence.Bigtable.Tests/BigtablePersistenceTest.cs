@@ -1,7 +1,4 @@
 ﻿using Akka.TestKit.Xunit2;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using Xunit;
 
 namespace Hafslund.Akka.Persistence.Bigtable.Tests

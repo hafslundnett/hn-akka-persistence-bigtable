@@ -1,16 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Akka.Actor;
-using Akka.Event;
+﻿using Akka.Actor;
 using Akka.Persistence;
 
 namespace AkkaIntegration.Tests.Performance.Persistence
 {
     public class PersistentJournalBenchmarkActor : ReceivePersistentActor
     {
-        private readonly ILoggingAdapter _log = Context.GetLogger();
-
         /// <summary>
         /// Our stored value
         /// </summary>
