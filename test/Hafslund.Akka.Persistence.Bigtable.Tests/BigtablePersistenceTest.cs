@@ -31,5 +31,16 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
             Assert.True(defaultConfig.HasPath("akka.persistence.journal.bigtable"));
             Assert.True(defaultConfig.HasPath("akka.persistence.snapshot-store.bigtable"));
         }
+
+        [Fact]
+        public void BigtablePersistence_UsingDedicatedShardingPlugin_ShouldUseBigtableShardingPlugin()
+        {
+            BigtablePersistence.Get(Sys);
+            ShardingBigtablePersistence.Get(Sys);
+            var clusterShardingJournalPlugin = Sys.Settings.Config.GetString("akka.cluster.sharding.journal-plugin-id");
+            var clusterShardingSnapshotPlugin = Sys.Settings.Config.GetString("akka.cluster.sharding.snapshot-plugin-id");
+            Assert.Equal("akka.persistence.journal.bigtable-sharding", clusterShardingJournalPlugin);
+            Assert.Equal("akka.persistence.snapshot-store.bigtable-sharding", clusterShardingSnapshotPlugin);
+        }
     }
 }
