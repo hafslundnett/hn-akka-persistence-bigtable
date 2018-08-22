@@ -27,7 +27,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
         {
         }
 
-        public BigtableSnapshotStore(BigtableSettings settings)
+        public BigtableSnapshotStore(BigtableSnapshotSettings settings)
         {
             
             _log.Info($"{nameof(BigtableSnapshotStore)}: constructing, with table name '{settings.TableName}'");

@@ -1,5 +1,6 @@
 ﻿using Akka.Configuration;
 using Akka.TestKit.Xunit2;
+using Hafslund.Akka.Persistence.Bigtable.Journal;
 using Xunit;
 
 namespace Hafslund.Akka.Persistence.Bigtable.Tests
@@ -10,7 +11,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
         public void ShouldParseDefaultSnapshotConfig()
         {
             var snapshotSettings =
-                BigtableSettings.Create(
+                BigtableSnasphotSettings.Create(
                     ConfigurationFactory.ParseString(@"akka.persistence.snapshot-store.bigtable {
                         table-name = foo
                         family-name = bar
@@ -36,8 +37,8 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
                             .WithFallback(BigtablePersistence.DefaultConfig)
                             .WithFallback(ShardingBigtablePersistence.DefaultConfig);
 
-            var journalSettings = BigtableSettings.Create(config.GetConfig("akka.persistence.journal.bigtable"));
-            var shardingSettings = BigtableSettings.Create(config.GetConfig("akka.persistence.journal.bigtable-sharding"));
+            var journalSettings = BigtableJournalSettings.Create(config.GetConfig("akka.persistence.journal.bigtable"));
+            var shardingSettings = BigtableJournalSettings.Create(config.GetConfig("akka.persistence.journal.bigtable-sharding"));
 
             Assert.Equal("bar", journalSettings.TableName);
             Assert.Equal("foo", shardingSettings.TableName);
@@ -60,8 +61,8 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
                             .WithFallback(BigtablePersistence.DefaultConfig)
                             .WithFallback(ShardingBigtablePersistence.DefaultConfig);
 
-            var snapshotSettings = BigtableSettings.Create(config.GetConfig("akka.persistence.snapshot-store.bigtable"));
-            var shardingSettings = BigtableSettings.Create(config.GetConfig("akka.persistence.snapshot-store.bigtable-sharding"));
+            var snapshotSettings = BigtableSnasphotSettings.Create(config.GetConfig("akka.persistence.snapshot-store.bigtable"));
+            var shardingSettings = BigtableSnasphotSettings.Create(config.GetConfig("akka.persistence.snapshot-store.bigtable-sharding"));
 
             Assert.Equal("bar", snapshotSettings.TableName);
             Assert.Equal("foo", shardingSettings.TableName);

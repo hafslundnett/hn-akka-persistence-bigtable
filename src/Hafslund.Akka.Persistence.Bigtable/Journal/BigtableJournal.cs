@@ -30,7 +30,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
         {
         }
 
-        public BigtableJournal(BigtableSettings settings)
+        public BigtableJournal(BigtableJournalSettings settings)
         {
             _log.Info($"{nameof(BigtableJournal)}: constructing, with table name '{settings.TableName}'");
             _tableName = TableName.Parse(settings.TableName);

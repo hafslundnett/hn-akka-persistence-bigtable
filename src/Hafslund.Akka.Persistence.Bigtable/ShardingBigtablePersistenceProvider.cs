@@ -1,4 +1,5 @@
 ﻿using Akka.Actor;
+using Hafslund.Akka.Persistence.Bigtable.Journal;
 
 namespace Hafslund.Akka.Persistence.Bigtable
 {
@@ -12,11 +13,11 @@ namespace Hafslund.Akka.Persistence.Bigtable
             system.Settings.InjectTopLevelFallback(ShardingBigtablePersistence.DefaultConfig);
 
             var journalSettings =
-                BigtableSettings.Create(
+                BigtableJournalSettings.Create(
                     system.Settings.Config.GetConfig("akka.persistence.journal.bigtable-sharding"));
 
             var snapshotSettings =
-                BigtableSettings.Create(
+                BigtableSnasphotSettings.Create(
                     system.Settings.Config.GetConfig("akka.persistence.snapshot-store.bigtable-sharding"));
 
             return new ShardingBigtablePersistence(journalSettings, snapshotSettings);

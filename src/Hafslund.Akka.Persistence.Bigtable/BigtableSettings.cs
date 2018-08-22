@@ -5,7 +5,7 @@ namespace Hafslund.Akka.Persistence.Bigtable
     /// <summary>
     ///     Defines all of the configuration settings used by the `akka.persistence.journal.bigtable` plugin.
     /// </summary>
-    public class BigtableSettings
+    public class BigtableSnasphotSettings
     {
         /// <summary>
         /// The name of the table for normal actor data
@@ -19,17 +19,17 @@ namespace Hafslund.Akka.Persistence.Bigtable
         /// <example>f</example>
         public string FamilyName { get; }
 
-        protected BigtableSettings(string tableName, string familyName)
+        protected BigtableSnasphotSettings(string tableName, string familyName)
         {
             TableName = tableName;
             FamilyName = familyName;
         }
 
-        public static BigtableSettings Create(Config config)
+        public static BigtableSnasphotSettings Create(Config config)
         {
             var tableName = config.GetString("table-name");
             var famliy = config.GetString("family-name");
-            return new BigtableSettings(tableName, famliy);
+            return new BigtableSnasphotSettings(tableName, famliy);
         }
     }
 }

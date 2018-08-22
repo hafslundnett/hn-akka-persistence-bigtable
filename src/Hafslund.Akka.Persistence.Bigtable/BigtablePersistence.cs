@@ -1,5 +1,7 @@
 ﻿using Akka.Actor;
 using Akka.Configuration;
+using Hafslund.Akka.Persistence.Bigtable.Journal;
+using Hafslund.Akka.Persistence.Bigtable.Snapshot;
 
 namespace Hafslund.Akka.Persistence.Bigtable
 {
@@ -9,15 +11,15 @@ namespace Hafslund.Akka.Persistence.Bigtable
     /// </summary>
     public class BigtablePersistence : IExtension
     {
-        public BigtablePersistence(BigtableSettings bigtableJournalSettings, BigtableSettings bigtableSnapshotSettings)
+        public BigtablePersistence(BigtableJournalSettings bigtableJournalSettings, BigtableSnapshotSettings bigtableSnapshotSettings)
         {
             BigtableJournalSettings = bigtableJournalSettings;
             BigtableSnapshotSettings = bigtableSnapshotSettings;
         }
 
-        public BigtableSettings BigtableJournalSettings { get; }
+        public BigtableJournalSettings BigtableJournalSettings { get; }
 
-        public BigtableSettings BigtableSnapshotSettings { get; }
+        public BigtableSnapshotSettings BigtableSnapshotSettings { get; }
 
         /// <summary>
         ///     The default HOCON configuration for <see cref="BigtablePersistence" />.
