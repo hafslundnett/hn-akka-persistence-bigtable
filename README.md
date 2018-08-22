@@ -54,31 +54,21 @@ akka.persistence.journal.bigtable.family-name = otherfamily
 akka.persistence.snapshot-store.bigtable.family-name = otherfamily
 ```
 
-## Sharding Setup
+## Sharding setup
 
-By default, sharding events and snapshots will be persisted by the same plugin by just specifying this in the sharding config:
-```HOCON
-akka.cluster.sharding {
-	journal-plugin-id = "akka.persistence.journal.bigtable"
-	snapshot-plugin-id = "akka.persistence.snapshot-store.bigtable"
-	state-store-mode = persistence
-}
-```
-
-If you want to instantiate a different instance for sharding events and snapshots (mainly if you would like to store these to separate tables), add the following line in code:
+If you would like to store sharding events and snapshots in separate tables, add the following line in code:
 ```C#
 ShardingBigtablePersistence.Get(actorSystem);
 ```
 
-If it is preferred to load the extension from config instead of through code, specify the FQCNs for the Journal and Snapshot steore classes specific for sharding in HOCON:
+or if it is preferred to load the extension from config instead of through code, specify the FQCNs for the Journal and Snapshot steore classes specific for sharding in HOCON:
 
 ```HOCON
 akka.persistence.journal.bigtable.class = "Hafslund.Akka.Persistence.Bigtable.Journal.ShardingBigtableJournal, Hafslund.Akka.Persistence.Bigtable"
 akka.persistence.snapshot-store.bigtable.class = "Hafslund.Akka.Persistence.Bigtable.Snapshot.ShardingBigtableSnapshotStore, Hafslund.Akka.Persistence.Bigtable"
 ```
 
-
-Then make sure the following changes to your HOCON:
+Then make the following changes to your HOCON:
 ```hocon
 akka.cluster.sharding {
 	journal-plugin-id = "akka.persistence.journal.bigtable-sharding"
@@ -122,6 +112,7 @@ akka.persistence {
 	    plugin-dispatcher = "akka.actor.default-dispatcher"
     }
 
+	# Only required if you want to store sharding events to separate table:
 	bigtable-sharding {
 	    # qualified type name of the Google Bigtable persistence journal actor
 	    class = "Hafslund.Akka.Persistence.Bigtable.Journal.ShardingBigtableJournal, Hafslund.Akka.Persistence.Bigtable"
@@ -156,6 +147,7 @@ akka.persistence {
 	    plugin-dispatcher = "akka.actor.default-dispatcher"
     }
 
+	# Only required if you want to store harding snapshots to a separate table:
 	bigtable-sharding {
 	    # qualified type name of the Google Bigtable persistence snapshot storage actor
 	    class = "Hafslund.Akka.Persistence.Bigtable.Snapshot.ShardingBigtableSnapshotStore, Hafslund.Akka.Persistence.Bigtable"
