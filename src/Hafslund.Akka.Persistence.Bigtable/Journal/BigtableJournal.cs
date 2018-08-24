@@ -28,6 +28,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
 
         public BigtableJournal() : this(BigtablePersistence.Get(Context.System).BigtableJournalSettings)
         {
+            _log.Error("I am still a stranger.");
         }
 
         public BigtableJournal(BigtableJournalSettings settings)
