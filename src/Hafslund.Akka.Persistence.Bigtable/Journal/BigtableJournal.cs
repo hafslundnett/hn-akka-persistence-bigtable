@@ -16,7 +16,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
 {
     public class BigtableJournal : AsyncWriteJournal
     {
-        private static readonly Type PersistentRepresentationType = typeof (IPersistentRepresentation);
+        private static readonly Type PersistentRepresentationType = typeof(IPersistentRepresentation);
         private static readonly ByteString PayloadColumnQualifier = ByteString.CopyFromUtf8("p");
         private static readonly char RowKeySeparator = '#';
         private readonly string _family;
@@ -112,16 +112,25 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
             }
         }
 
-        protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
+        protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> atomicWrites)
         {
-            var BigtableEntries = messages
-                .SelectMany(atomicWrite => (IImmutableList<IPersistentRepresentation>)atomicWrite.Payload)
-                .Select(ToBigtableEntry);
-
             IImmutableList<Exception> exceptions = null;
             try
             {
-                await _bigtableClient.MutateRowsAsync(_tableName, BigtableEntries).ConfigureAwait(false);
+                foreach (var atomicWrite in atomicWrites)
+                {
+                    if (atomicWrite.HighestSequenceNr - atomicWrite.LowestSequenceNr > 1)
+                    {
+                        throw new NotSupportedException("Multiple events in single atomic write is not supported");
+                    }
+                    var persistent = (IPersistentRepresentation)atomicWrite.Payload;
+                    var checkAndMutateRowRequest = ToMutateRowIfNotExists(persistent);
+                    var response = await _bigtableClient.CheckAndMutateRowAsync(checkAndMutateRowRequest).ConfigureAwait(false);
+                    if (!response.PredicateMatched)
+                    {
+                        throw new IllegalActorStateException($"Sequence number {persistent.SequenceNr} already persisted for persistenceId {persistent.PersistenceId}");
+                    }
+                }
             }
             catch (Exception e)
             {
@@ -139,7 +148,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
         }
 
         private static string ToRowKeyString(string persistenceId, long sequenceNumber)
-        { 
+        {
             return $"{persistenceId}{RowKeySeparator}{sequenceNumber.ToString("D19")}";
         }
 
@@ -179,6 +188,16 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
             var payload = PersistentToBytes(persistent);
             entry.Mutations.Add(Mutations.SetCell(_family, PayloadColumnQualifier, payload, new BigtableVersion(-1)));
             return entry;
+        }
+
+        private CheckAndMutateRowRequest ToMutateRowIfNotExists(IPersistentRepresentation persistent)
+        {
+            var nonExistingRowFilter = RowFilters.CellsPerRowLimit(0);
+            var checkAndMutateRowRequest = new CheckAndMutateRowRequest();
+            checkAndMutateRowRequest.PredicateFilter = nonExistingRowFilter;
+            checkAndMutateRowRequest.RowKey = ByteString.CopyFromUtf8(ToRowKeyString(persistent.PersistenceId, persistent.SequenceNr));
+            checkAndMutateRowRequest.TrueMutations.Add(Mutations.SetCell(_family, PayloadColumnQualifier, PersistentToBytes(persistent), new BigtableVersion(-1)));
+            return checkAndMutateRowRequest;
         }
     }
 }
