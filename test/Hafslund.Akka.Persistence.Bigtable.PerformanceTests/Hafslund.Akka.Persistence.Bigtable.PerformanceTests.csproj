@@ -8,7 +8,6 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.7.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.7.0" />
     <PackageReference Include="NBench" Version="1.2.2" />
     <PackageReference Include="Akka.Serialization.MessagePack" Version="1.1.0" />
     <DotNetCliToolReference Include="dotnet-nbench" Version="1.2.2" />
