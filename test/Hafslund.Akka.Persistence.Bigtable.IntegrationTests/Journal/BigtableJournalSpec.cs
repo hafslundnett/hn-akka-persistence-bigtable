@@ -64,6 +64,6 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Journal
 
         protected override bool SupportsRejectingNonSerializableObjects => true;
 
-        protected override bool SupportsAtomicPersistAllOfSeveralEvents => true;
+        protected override bool SupportsAtomicPersistAllOfSeveralEvents => false;
     }
 }

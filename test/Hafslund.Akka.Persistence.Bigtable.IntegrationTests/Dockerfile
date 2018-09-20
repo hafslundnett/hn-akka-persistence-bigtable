@@ -1,4 +1,4 @@
-FROM google/cloud-sdk:slim
+FROM google/cloud-sdk:214.0.0-slim
 
 # Install .NET CLI dependencies
 RUN apt-get update \
