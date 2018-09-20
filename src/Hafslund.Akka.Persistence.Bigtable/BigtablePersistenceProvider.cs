@@ -21,7 +21,12 @@ namespace Hafslund.Akka.Persistence.Bigtable
                 BigtableSnapshotSettings.Create(
                     system.Settings.Config.GetConfig("akka.persistence.snapshot-store.bigtable"));
 
-            return new BigtablePersistence(journalSettings, snapshotSettings);
+            var transportSerializationSettings = 
+                BigtableTransportSerializationSettings.Create(
+                    system.Settings.Config.GetConfig("akka.persistence.transport-serialization.bigtable"));
+            
+
+            return new BigtablePersistence(journalSettings, snapshotSettings, transportSerializationSettings);
         }
     }
 }

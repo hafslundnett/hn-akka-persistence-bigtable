@@ -11,9 +11,13 @@ namespace Hafslund.Akka.Persistence.Bigtable
     /// </summary>
     public sealed class ShardingBigtablePersistence : BigtablePersistence
     {
-        public ShardingBigtablePersistence(BigtableJournalSettings bigtableJournalSettings, BigtableSnapshotSettings bigtableSnapshotSettings) : base(bigtableJournalSettings, bigtableSnapshotSettings)
+        public ShardingBigtablePersistence(
+            BigtableJournalSettings bigtableJournalSettings, 
+            BigtableSnapshotSettings bigtableSnapshotSettings, 
+            BigtableTransportSerializationSettings transportSerialization) : base(bigtableJournalSettings, bigtableSnapshotSettings, transportSerialization)
         {
         }
+
 
         /// <summary>
         ///     The default HOCON configuration for <see cref="ShardingBigtablePersistence" />.

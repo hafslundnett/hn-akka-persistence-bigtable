@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Akka.Actor;
 using Akka.Event;
 using Akka.Persistence;
 using Akka.Persistence.Snapshot;
@@ -22,19 +23,29 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
         private readonly TableName _tableName;
         private readonly ILoggingAdapter _log = Context.GetLogger();
         private readonly Serializer _serializer;
+        private readonly Address _transportSerializationFallbackAddress;
+        private readonly bool _serializeWithTransport;
 
-        public BigtableSnapshotStore() : this(BigtablePersistence.Get(Context.System).BigtableSnapshotSettings)
+        public BigtableSnapshotStore() : this(BigtablePersistence.Get(Context.System))
         {
         }
 
-        public BigtableSnapshotStore(BigtableSnapshotSettings settings)
+        public BigtableSnapshotStore(BigtablePersistence bigtablePersistence) : this(
+            bigtablePersistence.SnapshotSettings,
+            bigtablePersistence.TransportSerializationSetttings)
         {
-            
+        }
+
+        public BigtableSnapshotStore(BigtableSnapshotSettings settings, BigtableTransportSerializationSettings transportSerializationSettings)
+        {
+
             _log.Info($"{nameof(BigtableSnapshotStore)}: constructing, with table name '{settings.TableName}'");
             _tableName = TableName.Parse(settings.TableName);
             _family = settings.FamilyName;
             _bigtableClient = BigtableClient.Create();
             _serializer = Context.System.Serialization.FindSerializerForType(SnapshotType);
+            _transportSerializationFallbackAddress = transportSerializationSettings.GetFallbackAddress(Context);
+            _serializeWithTransport = transportSerializationSettings.EnableSerializationWithTransport;
         }
 
         protected override void PreStart()
@@ -53,7 +64,6 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
 
         protected override async Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {
-
             var startKey = GetRowKey(persistenceId, criteria.MinSequenceNr);
             var endKey = GetRowKey(persistenceId, criteria.MaxSequenceNr);
 
@@ -95,7 +105,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
 
         protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
         {
-            var bytes = PersistentToBytes(metadata, snapshot);
+            var bytes = PersistentToBytes(metadata, snapshot, Context.System);
             var request = new MutateRowRequest();
             request.TableNameAsTableName = _tableName;
             request.Mutations.Add(Mutations.SetCell(_family, SnapshotColumnQualifier, ByteString.CopyFrom(bytes), new BigtableVersion(-1)));
@@ -103,9 +113,17 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             await _bigtableClient.MutateRowAsync(request).ConfigureAwait(false);
         }
 
-        private byte[] PersistentToBytes(SnapshotMetadata metadata, object snapshot)
+        private byte[] PersistentToBytes(SnapshotMetadata metadata, object snapshot, ActorSystem actorSystem)
         {
-            return _serializer.ToBinary(new SelectedSnapshot(metadata, snapshot));
+            var selectedSnapshot = new SelectedSnapshot(metadata, snapshot);
+            if (_serializeWithTransport)
+            {
+                return Serialization.SerializeWithTransport(actorSystem, _transportSerializationFallbackAddress, () => _serializer.ToBinary(selectedSnapshot));
+            }
+            else
+            {
+                return _serializer.ToBinary(selectedSnapshot);
+            }
         }
 
         private SelectedSnapshot PersistentFromBigtableRow(Row BigtableRow)
