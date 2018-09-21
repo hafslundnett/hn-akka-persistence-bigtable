@@ -11,6 +11,7 @@ using Google.Protobuf;
 using System.Linq;
 using Google.Cloud.Bigtable.Common.V2;
 using Akka.Event;
+using Akka.Pattern;
 
 namespace Hafslund.Akka.Persistence.Bigtable.Journal
 {
@@ -26,7 +27,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
         private readonly TableName _tableName;
         private readonly Serializer _serializer;
         private readonly ILoggingAdapter _log = Context.GetLogger();
-        private readonly Address _tranportSerializationFallbackAddress;
+        private readonly Address _transportSerializationFallbackAddress;
         private readonly bool _serializeWithTransport;
 
         public BigtableJournal() : this(BigtablePersistence.Get(Context.System))
@@ -46,8 +47,11 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
             _family = settings.FamilyName;
             _bigtableClient = BigtableClient.Create();
             _serializer = Context.System.Serialization.FindSerializerForType(PersistentRepresentationType);
-            _tranportSerializationFallbackAddress = transportSerializationSettings.GetFallbackAddress(Context);
-            _serializeWithTransport = transportSerializationSettings.EnableSerializationWithTransport;
+            _transportSerializationFallbackAddress = transportSerializationSettings.GetFallbackAddress(Context);
+            _serializeWithTransport = settings.EnableSerializationWithTransport;
+            _transportSerializationFallbackAddress = _serializeWithTransport ? transportSerializationSettings.GetFallbackAddress(Context) : null;
+            _log.Info($"EnableSerializationWithTransport: {_serializeWithTransport}");
+            _log.Info($"TransportSerializationFallbackAddress: {_transportSerializationFallbackAddress}");
         }
 
         protected override void PreStart()
@@ -125,21 +129,39 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
 
         protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
         {
-            var system = Context.System;
+            var actorSystem = Context.System;
+            int loopCounter = 0;
             foreach (var atomicWrite in messages)
             {
-                if (atomicWrite.HighestSequenceNr - atomicWrite.LowestSequenceNr > 1)
-                {
-                    throw new NotSupportedException("Journal does not support multiple events in a single atomic write");
-                }
-                var persistent = ((IImmutableList<IPersistentRepresentation>)atomicWrite.Payload).Single();
-                var response = await _bigtableClient.CheckAndMutateRowAsync(ToMutateRowIfNotExistsRequest(persistent, system)).ConfigureAwait(false);
+                var request = ToBigtableWriteRequest(atomicWrite, actorSystem);
+                var response = await _bigtableClient.CheckAndMutateRowAsync(request).ConfigureAwait(false);
                 if (response.PredicateMatched) // row already existed
                 {
-                    throw new IllegalActorStateException($"The journal event already exists: {persistent.PersistenceId}-{persistent.SequenceNr}");
+                    var msg = $"The journal event already exists: {atomicWrite.PersistenceId}-{atomicWrite.LowestSequenceNr}";
+                    _log.Warning(msg);
+                    var exception = new IllegalActorStateException(msg);
+                    return Enumerable
+                        .Concat(
+                            Enumerable.Repeat<Exception>(null, loopCounter), 
+                            Enumerable.Repeat(exception, messages.Count() - loopCounter))
+                        .ToImmutableList();
                 }
+                loopCounter++;
             }
             return null;
+        }
+
+
+        private CheckAndMutateRowRequest ToBigtableWriteRequest(AtomicWrite atomicWrite, ActorSystem actorSystem)
+        {
+            if (atomicWrite.HighestSequenceNr != atomicWrite.LowestSequenceNr)
+            {
+                throw new NotSupportedException("Journal does not support multiple events in a single atomic write");
+            }
+
+            var persistent = ((IImmutableList<IPersistentRepresentation>)atomicWrite.Payload).Single();
+
+            return ToMutateRowIfNotExistsRequest(persistent, actorSystem);
         }
 
         private static long GetSequenceNumber(Row bigtableRow)
@@ -163,7 +185,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
         {
             if (_serializeWithTransport)
             {
-                return Serialization.SerializeWithTransport(system, _tranportSerializationFallbackAddress, () => _serializer.ToBinary(message));
+                return Serialization.SerializeWithTransport(system, _transportSerializationFallbackAddress, () => _serializer.ToBinary(message));
             }
             else
             {

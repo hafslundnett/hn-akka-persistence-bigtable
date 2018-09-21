@@ -6,6 +6,7 @@ using Akka.Actor;
 using Akka.Event;
 using Akka.Persistence;
 using Akka.Persistence.Snapshot;
+using AkkaPersistenceSerialization = Akka.Persistence.Serialization;
 using Akka.Serialization;
 using Google.Cloud.Bigtable.Common.V2;
 using Google.Cloud.Bigtable.V2;
@@ -15,14 +16,15 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
 {
     public class BigtableSnapshotStore : SnapshotStore
     {
-        private static readonly Type SnapshotType = typeof(SelectedSnapshot);
         private static readonly ByteString SnapshotColumnQualifier = ByteString.CopyFromUtf8("s");
+        private static readonly ByteString SnapshotMetaDataColumnQualifier = ByteString.CopyFromUtf8("m");
         private static readonly string RowKeySeparator = "#";
         private readonly string _family;
         private readonly BigtableClient _bigtableClient;
         private readonly TableName _tableName;
         private readonly ILoggingAdapter _log = Context.GetLogger();
-        private readonly Serializer _serializer;
+        private readonly Serializer _snapshotSerializer;
+        private readonly Serializer _snapshotMetadataSerializer;
         private readonly Address _transportSerializationFallbackAddress;
         private readonly bool _serializeWithTransport;
 
@@ -43,9 +45,13 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             _tableName = TableName.Parse(settings.TableName);
             _family = settings.FamilyName;
             _bigtableClient = BigtableClient.Create();
-            _serializer = Context.System.Serialization.FindSerializerForType(SnapshotType);
-            _transportSerializationFallbackAddress = transportSerializationSettings.GetFallbackAddress(Context);
-            _serializeWithTransport = transportSerializationSettings.EnableSerializationWithTransport;
+            _snapshotSerializer = Context.System.Serialization.FindSerializerForType(typeof(AkkaPersistenceSerialization.Snapshot));
+            _snapshotMetadataSerializer = Context.System.Serialization.FindSerializerForType(typeof(SnapshotMetadata));
+            _serializeWithTransport = settings.EnableSerializationWithTransport;
+            _transportSerializationFallbackAddress = _serializeWithTransport ?  transportSerializationSettings.GetFallbackAddress(Context) : null;
+
+            _log.Info($"EnableSerializationWithTransport: {_serializeWithTransport}");
+            _log.Info($"TransportSerializationFallbackAddress: {_transportSerializationFallbackAddress}");
         }
 
         protected override void PreStart()
@@ -105,40 +111,57 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
 
         protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
         {
-            var bytes = PersistentToBytes(metadata, snapshot, Context.System);
+            var snapshotBytes = SnapshotToBytes(metadata, snapshot, Context.System);
+            byte[] snapshotMetadataBytes = SnapshotMetadataToBytes(metadata);
             var request = new MutateRowRequest();
             request.TableNameAsTableName = _tableName;
-            request.Mutations.Add(Mutations.SetCell(_family, SnapshotColumnQualifier, ByteString.CopyFrom(bytes), new BigtableVersion(-1)));
+            request.Mutations.Add(Mutations.SetCell(_family, SnapshotColumnQualifier, ByteString.CopyFrom(snapshotBytes), new BigtableVersion(-1)));
+            request.Mutations.Add(Mutations.SetCell(_family, SnapshotMetaDataColumnQualifier, ByteString.CopyFrom(snapshotMetadataBytes), new BigtableVersion(-1)));
             request.RowKey = GetRowKey(metadata.PersistenceId, metadata.SequenceNr);
             await _bigtableClient.MutateRowAsync(request).ConfigureAwait(false);
         }
 
-        private byte[] PersistentToBytes(SnapshotMetadata metadata, object snapshot, ActorSystem actorSystem)
+        private byte[] SnapshotMetadataToBytes(SnapshotMetadata metadata)
         {
-            var selectedSnapshot = new SelectedSnapshot(metadata, snapshot);
+            return _snapshotMetadataSerializer.ToBinary(metadata);
+        }
+
+        private byte[] SnapshotToBytes(SnapshotMetadata metadata, object snapshotData, ActorSystem actorSystem)
+        { 
+            var selectedSnapshot = new AkkaPersistenceSerialization.Snapshot(snapshotData);
             if (_serializeWithTransport)
             {
-                return Serialization.SerializeWithTransport(actorSystem, _transportSerializationFallbackAddress, () => _serializer.ToBinary(selectedSnapshot));
+                return Serialization.SerializeWithTransport(actorSystem, _transportSerializationFallbackAddress, () => _snapshotSerializer.ToBinary(selectedSnapshot));
             }
             else
             {
-                return _serializer.ToBinary(selectedSnapshot);
+                return _snapshotSerializer.ToBinary(selectedSnapshot);
             }
         }
 
         private SelectedSnapshot PersistentFromBigtableRow(Row BigtableRow)
         {
-            var bytes = BigtableRow.Families
+            var snapshotBytes = BigtableRow.Families
                 .Single(f => f.Name.Equals(_family)).Columns
                 .Single(c => c.Qualifier.Equals(SnapshotColumnQualifier)).Cells
                 .First().Value.ToArray();
+            
+            var snapshotMetaDataBytes = BigtableRow.Families
+                .Single(f => f.Name.Equals(_family)).Columns
+                .Single(c => c.Qualifier.Equals(SnapshotMetaDataColumnQualifier)).Cells
+                .First().Value.ToArray();
 
-            return PersistentFromBytes(bytes);
+            return new SelectedSnapshot(SnapshotMetadataFromBytes(snapshotMetaDataBytes), SnapshotFromBytes(snapshotBytes).Data);
         }
 
-        private SelectedSnapshot PersistentFromBytes(byte[] bytes)
+        private SnapshotMetadata SnapshotMetadataFromBytes(byte[] bytes)
         {
-            return _serializer.FromBinary<SelectedSnapshot>(bytes);
+            return _snapshotMetadataSerializer.FromBinary<SnapshotMetadata>(bytes);
+        }
+
+        private AkkaPersistenceSerialization.Snapshot SnapshotFromBytes(byte[] bytes)
+        {
+            return _snapshotSerializer.FromBinary<AkkaPersistenceSerialization.Snapshot>(bytes);
         }
         private static string ToRowKeyString(string persistenceId, long sequenceNumber)
         {

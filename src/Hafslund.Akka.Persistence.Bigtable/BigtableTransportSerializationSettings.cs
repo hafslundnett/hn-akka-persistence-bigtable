@@ -5,7 +5,7 @@ namespace Hafslund.Akka.Persistence.Bigtable
 {
     public class BigtableTransportSerializationSettings
     {
-        public bool EnableSerializationWithTransport { get; }
+        
 
         /// <summary>
         /// Fallback value for remote hostname when serializing local actor refs
@@ -27,11 +27,6 @@ namespace Hafslund.Akka.Persistence.Bigtable
 
         public Address GetFallbackAddress(IActorContext context)
         {
-            if (!EnableSerializationWithTransport)
-            {
-                return null;
-            }
-
             return new Address(
                 TranportProtocol,
                 context.System.Name,
@@ -40,12 +35,11 @@ namespace Hafslund.Akka.Persistence.Bigtable
         }
 
 
-        public BigtableTransportSerializationSettings(string hostname, int port, string tranportProtocol, bool enable)
+        public BigtableTransportSerializationSettings(string hostname, int port, string tranportProtocol)
         {
             this.Hostname = hostname;
             this.Port = port;
             this.TranportProtocol = tranportProtocol;
-
         }
 
         public static BigtableTransportSerializationSettings Create(Config config)
@@ -53,8 +47,7 @@ namespace Hafslund.Akka.Persistence.Bigtable
             return new BigtableTransportSerializationSettings(
                 config.GetString("hostname"),
                 config.GetInt("port"),
-                config.GetString("transport-protocol"),
-                config.GetBoolean("enable-serialization-with-transport")
+                config.GetString("transport-protocol")
             );
         }
 

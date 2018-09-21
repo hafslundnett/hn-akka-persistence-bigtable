@@ -27,9 +27,16 @@ namespace AkkaIntegration.Tests.Performance.Persistence
             ConfigurationFactory.ParseString(@"
 
                 akka {
-                    serializers {
-                        messagepack = ""Akka.Serialization.MessagePack.MsgPackSerializer, Akka.Serialization.MessagePack""
+                    actor {
+                        serializers {
+                            messagepack = ""Akka.Serialization.MessagePack.MsgPackSerializer, Akka.Serialization.MessagePack""
+                        }
+
+                        serialization-bindings {
+                            ""System.Object"" = messagepack
+                        }
                     }
+
                     persistence {
                         auto-start-journals = [""akka.persistence.journal.bigtable""]
                         publish-plugin-commands = on
