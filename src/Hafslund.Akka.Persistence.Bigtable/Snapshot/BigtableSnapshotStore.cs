@@ -250,7 +250,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             return $"{persistenceId}{RowKeySeparator}{sequenceNumber.ToString("D19")}";
         }
 
-        public static ByteString GetRowKey(string persistenceId, long sequenceNumber)
+        private static ByteString GetRowKey(string persistenceId, long sequenceNumber)
         {
             return ByteString.CopyFromUtf8(ToRowKeyString(persistenceId, sequenceNumber));
         }
