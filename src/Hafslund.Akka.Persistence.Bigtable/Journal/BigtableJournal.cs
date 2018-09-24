@@ -42,7 +42,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
 
         public BigtableJournal(BigtableJournalSettings settings, BigtableTransportSerializationSettings transportSerializationSettings)
         {
-            _log.Info($"{nameof(BigtableJournal)}: constructing, with table name '{settings.TableName}'");
+            _log.Debug($"{nameof(BigtableJournal)}: constructing, with table name '{settings.TableName}'");
             _tableName = TableName.Parse(settings.TableName);
             _family = settings.FamilyName;
             _bigtableClient = BigtableClient.Create();
@@ -50,13 +50,13 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
             _transportSerializationFallbackAddress = transportSerializationSettings.GetFallbackAddress(Context);
             _serializeWithTransport = settings.EnableSerializationWithTransport;
             _transportSerializationFallbackAddress = _serializeWithTransport ? transportSerializationSettings.GetFallbackAddress(Context) : null;
-            _log.Info($"EnableSerializationWithTransport: {_serializeWithTransport}");
-            _log.Info($"TransportSerializationFallbackAddress: {_transportSerializationFallbackAddress}");
+            _log.Debug($"EnableSerializationWithTransport: {_serializeWithTransport}");
+            _log.Debug($"TransportSerializationFallbackAddress: {_transportSerializationFallbackAddress}");
         }
 
         protected override void PreStart()
         {
-            _log.Info("Initializing Bigtable Journal Storage...");
+            _log.Debug("Initializing Bigtable Journal Storage...");
             base.PreStart();
         }
 
@@ -66,7 +66,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
                 ToRowKeyBigtableByteString(persistenceId, fromSequenceNr),
                 ToRowKeyBigtableByteString(persistenceId, long.MaxValue));
             var rows = RowSet.FromRowRanges(rowRange);
-            var stream = _bigtableClient.ReadRows(_tableName, rows: rows);
+            var stream = _bigtableClient.ReadRows(_tableName, rows: rows, filter: RowFilters.StripValueTransformer());
             var lastRow = await stream.LastOrDefault().ConfigureAwait(false);
             return lastRow == null ? 0 : GetSequenceNumber(lastRow);
         }
@@ -90,8 +90,11 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
                 rowSet = RowSet.FromRowRanges(RowRange.Closed(startKey, endKey));
             }
 
-            var stream = _bigtableClient.ReadRows(_tableName, rows: rowSet, rowsLimit: max);
-
+            var stream = _bigtableClient.ReadRows(_tableName, 
+                rows: rowSet, 
+                filter:RowFilters.CellsPerColumnLimit(1), 
+                rowsLimit: max);
+             
             using (var asyncEnumerator = stream.GetEnumerator())
             {
                 while (await asyncEnumerator.MoveNext().ConfigureAwait(false))
@@ -130,7 +133,6 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
         protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
         {
             var actorSystem = Context.System;
-            int loopCounter = 0;
             foreach (var atomicWrite in messages)
             {
                 var request = ToBigtableWriteRequest(atomicWrite, actorSystem);
@@ -138,19 +140,12 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
                 if (response.PredicateMatched) // row already existed
                 {
                     var msg = $"The journal event already exists: {atomicWrite.PersistenceId}-{atomicWrite.LowestSequenceNr}";
-                    _log.Warning(msg);
-                    var exception = new IllegalActorStateException(msg);
-                    return Enumerable
-                        .Concat(
-                            Enumerable.Repeat<Exception>(null, loopCounter), 
-                            Enumerable.Repeat(exception, messages.Count() - loopCounter))
-                        .ToImmutableList();
+                    _log.Error(msg);
+                    throw new IllegalActorStateException(msg);
                 }
-                loopCounter++;
             }
             return null;
         }
-
 
         private CheckAndMutateRowRequest ToBigtableWriteRequest(AtomicWrite atomicWrite, ActorSystem actorSystem)
         {

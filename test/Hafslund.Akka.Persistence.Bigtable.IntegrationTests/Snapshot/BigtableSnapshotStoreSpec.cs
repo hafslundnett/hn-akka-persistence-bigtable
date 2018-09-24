@@ -41,13 +41,13 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Snapshot
                     actor {
                         serialize-messages = on
                         serializers {
-                            my-event-serializer = ""Hafslund.Akka.Persistence.Bigtable.IntegrationTests.MyEventSerializer, Hafslund.Akka.Persistence.Bigtable.IntegrationTests""
+                            actor-ref-wrapper-serializer = ""Hafslund.Akka.Persistence.Bigtable.IntegrationTests.ActorRefWrapperSerializer, Hafslund.Akka.Persistence.Bigtable.IntegrationTests""
                         }
                         serialization-bindings {
-                            ""Hafslund.Akka.Persistence.Bigtable.IntegrationTests.MyEvent, Hafslund.Akka.Persistence.Bigtable.IntegrationTests"" = my-event-serializer
+                            ""Hafslund.Akka.Persistence.Bigtable.IntegrationTests.ActorRefWrapper, Hafslund.Akka.Persistence.Bigtable.IntegrationTests"" = actor-ref-wrapper-serializer
                         }
                         serialization-identifiers {
-                            ""Hafslund.Akka.Persistence.Bigtable.IntegrationTests.MyEventSerializer, Hafslund.Akka.Persistence.Bigtable.IntegrationTests"" = 9999
+                            ""Hafslund.Akka.Persistence.Bigtable.IntegrationTests.ActorRefWrapperSerializer, Hafslund.Akka.Persistence.Bigtable.IntegrationTests"" = 9999
                         }
                     }
                     persistence {

@@ -3,29 +3,36 @@ using Akka.Configuration;
 using Akka.Util.Internal;
 using Google.Cloud.Bigtable.Common.V2;
 using Google.Cloud.Bigtable.V2;
+using Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Journal;
 using NBench;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 
 namespace AkkaIntegration.Tests.Performance.Persistence
 {
     public class BigTableJournalPerfSpecs
     {
-        public const string RecoveryCounterName = "MsgRecovered";
-        private Counter _recoveryCounter;
-
-        public const string WriteCounterName = "MsgPersisted";
-        private Counter _writeCounter;
-
         public static AtomicCounter TableVersionCounter = new AtomicCounter(0);
+        private static string BigtableTableName;
+        private static readonly Config SpecConfig;
 
-        private static string _tableName = Environment.GetEnvironmentVariable("PERFORMANCE_TEST_JOURNAL_TABLE");
+        public static IConfigurationRoot ReadConfig()
+        {
+            return new ConfigurationBuilder()
+                .AddJsonFile("appsettings.Development.json", optional: true)
+                .AddEnvironmentVariables()
+                .Build();
+        }
 
-        private static readonly Config SpecConfig =
-            ConfigurationFactory.ParseString(@"
+        static BigTableJournalPerfSpecs()
+        {
+            var config = ReadConfig();
+            BigtableTableName = config.GetValue<string>("PERFORMANCE_TEST_JOURNAL_TABLE");
 
+            SpecConfig = ConfigurationFactory.ParseString(@"
                 akka {
                     actor {
                         serializers {
@@ -45,77 +52,78 @@ namespace AkkaIntegration.Tests.Performance.Persistence
                             bigtable {
                                 class = ""Hafslund.Akka.Persistence.Bigtable.Journal.BigtableJournal, Hafslund.Akka.Persistence.Bigtable""
                                 plugin-dispatcher = ""akka.actor.default-dispatcher""
-                                table-name = """ + _tableName + @"""
+                                table-name = """ + BigtableTableName + @"""
                                 auto-initialize = on
                                 default-serializer = messagepack
                             }
                         }
                     }
                 }");
-
+        }
 
         public const int PersistentActorCount = 200;
-        public const int PersistedMessageCount = 20;
-
+        public const int PersistedMessageCount = 100;
         public static readonly TimeSpan MaxTimeout = TimeSpan.FromMinutes(6);
-
         private ActorSystem ActorSystem { get; set; }
-
-        private readonly List<IActorRef> _persistentActors = new List<IActorRef>(PersistentActorCount);
+        protected IActorRef _supervisor;
+        protected readonly List<String> _persistentActorIds = new List<String>(PersistentActorCount);
 
         [PerfSetup]
-        public void Setup(BenchmarkContext context)
+        public virtual void Setup(BenchmarkContext context)
         {
-            _recoveryCounter = context.GetCounter(RecoveryCounterName);
-            _writeCounter = context.GetCounter(WriteCounterName);
-
 
             ActorSystem = ActorSystem.Create(nameof(BigTableJournalPerfSpecs) + TableVersionCounter.Current, SpecConfig);
+
+            _supervisor = ActorSystem.ActorOf<BenchmarkActorSupervisor>("supervisor");
 
             foreach (var i in Enumerable.Range(0, PersistentActorCount))
             {
                 var id = "persistent" + Guid.NewGuid();
-                var actorRef =
-                    ActorSystem.ActorOf(
-                        Props.Create(() => new PersistentJournalBenchmarkActor(id)),
-                        id);
-
-                _persistentActors.Add(actorRef);
+                _persistentActorIds.Add(id);
             }
 
             // force the system to initialize
-            Task.WaitAll(_persistentActors.Select(a => a.Ask<PersistentBenchmarkMsgs.Done>(PersistentBenchmarkMsgs.Init.Instance)).Cast<Task>().ToArray());
+            Task.WaitAll(_persistentActorIds.Select(id => _supervisor.Ask<PersistentBenchmarkMsgs.Done>(new BenchmarkActorMessage(id, PersistentBenchmarkMsgs.Init.Instance))).Cast<Task>().ToArray());
+            AfterSetup();
         }
 
-        [PerfBenchmark(NumberOfIterations = 5, RunMode = RunMode.Iterations,
-            Description = "Write performance spec by 200 persistent actors", SkipWarmups = true)]
-        [CounterMeasurement(RecoveryCounterName)]
-        [CounterMeasurement(WriteCounterName)]
-        [GcMeasurement(GcMetric.TotalCollections, GcGeneration.AllGc)]
-        [MemoryMeasurement(MemoryMetric.TotalBytesAllocated)]
-        [TimingMeasurement]
-        public void BatchJournalWriteSpec(BenchmarkContext context)
+        protected virtual void AfterSetup() { }
+
+        protected Task<PersistentBenchmarkMsgs.Finished>[] StoreAllEvents()
         {
             for (int i = 0; i < PersistedMessageCount; i++)
                 for (int j = 0; j < PersistentActorCount; j++)
                 {
-                    _persistentActors[j].Tell(new PersistentBenchmarkMsgs.Store(1));
+                    _supervisor.Tell(new BenchmarkActorMessage(_persistentActorIds[j], new PersistentBenchmarkMsgs.Store(1)));
                 }
 
             var finished = new Task<PersistentBenchmarkMsgs.Finished>[PersistentActorCount];
             for (int i = 0; i < PersistentActorCount; i++)
             {
-                var task = _persistentActors[i]
-                    .Ask<PersistentBenchmarkMsgs.Finished>(PersistentBenchmarkMsgs.Finish.Instance, MaxTimeout);
+                var task = _supervisor
+                    .Ask<PersistentBenchmarkMsgs.Finished>(new BenchmarkActorMessage(_persistentActorIds[i], PersistentBenchmarkMsgs.Finish.Instance), MaxTimeout);
 
                 finished[i] = task;
             }
 
             Task.WaitAll(finished.Cast<Task>().ToArray());
-            foreach (var task in finished.Where(x => x.IsCompleted))
+
+            return finished;
+        }
+
+        protected Task<PersistentBenchmarkMsgs.Finished>[] RecoverAllEvents()
+        {
+            var recovered = new Task<PersistentBenchmarkMsgs.Finished>[PersistentActorCount];
+            for (int i = 0; i < PersistentActorCount; i++)
             {
-                _writeCounter.Increment(task.Result.State);
+                var task = _supervisor
+                    .Ask<PersistentBenchmarkMsgs.Finished>(new BenchmarkActorMessage(_persistentActorIds[i], PersistentBenchmarkMsgs.Finish.Instance), MaxTimeout);
+
+                recovered[i] = task;
             }
+
+            Task.WaitAll(recovered.Cast<Task>().ToArray());
+            return recovered;
         }
 
         [PerfCleanup]
@@ -126,8 +134,7 @@ namespace AkkaIntegration.Tests.Performance.Persistence
             try
             {
                 var bigtableClient = BigtableClient.Create();
-                var stream = bigtableClient.ReadRows(TableName.Parse(_tableName));
-
+                var stream = bigtableClient.ReadRows(TableName.Parse(BigtableTableName));
                 var deleteRows = new List<MutateRowsRequest.Types.Entry>();
 
                 using (var enumerator = stream.GetEnumerator())
@@ -140,7 +147,7 @@ namespace AkkaIntegration.Tests.Performance.Persistence
 
                 if (deleteRows.Any())
                 {
-                    bigtableClient.MutateRows(TableName.Parse(_tableName), deleteRows);
+                    bigtableClient.MutateRows(TableName.Parse(BigtableTableName), deleteRows);
                 }
             }
             catch (Exception ex)
