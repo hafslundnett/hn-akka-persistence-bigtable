@@ -41,22 +41,22 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
         public BigtableSnapshotStore(BigtableSnapshotSettings settings, BigtableTransportSerializationSettings transportSerializationSettings)
         {
 
-            _log.Info($"{nameof(BigtableSnapshotStore)}: constructing, with table name '{settings.TableName}'");
             _tableName = TableName.Parse(settings.TableName);
             _family = settings.FamilyName;
             _bigtableClient = BigtableClient.Create();
             _snapshotSerializer = Context.System.Serialization.FindSerializerForType(typeof(AkkaPersistenceSerialization.Snapshot));
             _snapshotMetadataSerializer = Context.System.Serialization.FindSerializerForType(typeof(SnapshotMetadata));
             _serializeWithTransport = settings.EnableSerializationWithTransport;
-            _transportSerializationFallbackAddress = _serializeWithTransport ?  transportSerializationSettings.GetFallbackAddress(Context) : null;
+            _transportSerializationFallbackAddress = _serializeWithTransport ? transportSerializationSettings.GetFallbackAddress(Context) : null;
 
-            _log.Info($"EnableSerializationWithTransport: {_serializeWithTransport}");
-            _log.Info($"TransportSerializationFallbackAddress: {_transportSerializationFallbackAddress}");
+            _log.Debug($"{nameof(BigtableSnapshotStore)}: constructing, with table name '{settings.TableName}'");
+            _log.Debug($"EnableSerializationWithTransport: {_serializeWithTransport}");
+            _log.Debug($"TransportSerializationFallbackAddress: {_transportSerializationFallbackAddress}");
         }
 
         protected override void PreStart()
         {
-            _log.Info("Initializing Bigtable Snapshot Storage...");
+            _log.Debug("Initializing Bigtable Snapshot Storage...");
             base.PreStart();
         }
 
@@ -70,43 +70,114 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
 
         protected override async Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {
-            var startKey = GetRowKey(persistenceId, criteria.MinSequenceNr);
-            var endKey = GetRowKey(persistenceId, criteria.MaxSequenceNr);
+            var filter = RowFilters.Chain
+            (
+                RowFilters.ColumnQualifierExact(SnapshotMetaDataColumnQualifier),
+                // this filter ensures that we only download snapshot metadata
+                RowFilters.TimestampRange(
+                    ToUtc(criteria.MinTimestamp),
+                    ToUtc(criteria.MaxTimeStamp)?.AddMilliseconds(1)
+                    // add a milliseconds since the upper bound is exclusive
+                    ),
+                RowFilters.CellsPerColumnLimit(1)
+            );
 
-            var rows = await _bigtableClient.ReadClosedRowRangeAsync(_tableName, startKey, endKey).ConfigureAwait(false);
-
-            var deletes = rows.Select(PersistentFromBigtableRow)
-                .Where(p => SatisfiesCriteria(criteria, p))
-                .Select(p => Mutations.CreateEntry(GetRowKey(persistenceId, p.Metadata.SequenceNr), Mutations.DeleteFromRow()));
-
-            if (deletes.Any())
+            var readRowsRequest = new ReadRowsRequest
             {
-                await _bigtableClient.MutateRowsAsync(_tableName, deletes).ConfigureAwait(false);
+                TableNameAsTableName = _tableName,
+                Filter = filter,
+                Rows = GetRowSet(persistenceId, criteria.MinSequenceNr, criteria.MaxSequenceNr)
+            };
+
+            var deleteMutations = await _bigtableClient
+                .ReadRows(readRowsRequest)
+                .Select(SnapshotMetadataFromBigtableRow)
+                .Where(metadata => SatisfiesTimestampCriteria(criteria, metadata))
+                .Select(metadata => Mutations.CreateEntry(GetRowKey(persistenceId, metadata.SequenceNr), Mutations.DeleteFromRow()))
+                .ToList()
+                .ConfigureAwait(false);
+
+            if (deleteMutations.Count > 0)
+            {
+                await _bigtableClient.MutateRowsAsync(_tableName, deleteMutations).ConfigureAwait(false);
             }
         }
 
         protected override async Task<SelectedSnapshot> LoadAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {
-            var startKey = GetRowKey(persistenceId, criteria.MinSequenceNr);
-            var endKey = GetRowKey(persistenceId, criteria.MaxSequenceNr);
+            if (criteria.MinSequenceNr > criteria.MaxSequenceNr)
+            {
+                return null;
+            }
 
-            var rows = await _bigtableClient.ReadClosedRowRangeAsync(_tableName, startKey, endKey).ConfigureAwait(false);
-
-            var selectedSnapshot = rows.Select(PersistentFromBigtableRow)
-                .OrderByDescending(persistent => persistent.Metadata.SequenceNr)
-                .ThenByDescending(persistent => persistent.Metadata.Timestamp)
-                .FirstOrDefault(persistent => SatisfiesCriteria(criteria, persistent));
-
-            return selectedSnapshot;
+            return await _bigtableClient
+                .ReadRows(GetReadRowsRequest(persistenceId, criteria))
+                .Select(PersistentFromBigtableRow)
+                .OrderByDescending(snapshot => snapshot.Metadata.SequenceNr)
+                .ThenByDescending(snapshot => snapshot.Metadata.Timestamp)
+                .FirstOrDefault(snapshot => SatisfiesTimestampCriteria(criteria, snapshot.Metadata))
+                .ConfigureAwait(false);
         }
 
-        private bool SatisfiesCriteria(SnapshotSelectionCriteria criteria, SelectedSnapshot snapshot)
+        private ReadRowsRequest GetReadRowsRequest(string persistenceId, SnapshotSelectionCriteria criteria)
+        {
+            var filter = RowFilters.Chain
+            (
+                RowFilters.TimestampRange(
+                    ToUtc(criteria.MinTimestamp)?.AddMilliseconds(-1),
+                    // subtract millisecond since bigtable only has millisecond granularity 
+                    ToUtc(criteria.MaxTimeStamp)?.AddMilliseconds(1)
+                    // add a milliseconds since the upper bound is exclusive
+                    ),
+                RowFilters.CellsPerColumnLimit(1)
+            );
+            return new ReadRowsRequest
+            {
+                TableNameAsTableName = _tableName,
+                Filter = filter,
+                Rows = GetRowSet(persistenceId, criteria.MinSequenceNr, criteria.MaxSequenceNr)
+            };
+        }
+
+        private DateTime? ToUtc(DateTime? dateTime)
+        {
+            if (dateTime.HasValue)
+            {
+                var dt = dateTime.Value.ToUniversalTime();
+                if (dt.Year <= 1 || dt.Year >= 9999)
+                {
+                    return null;
+                }
+
+                return dt;
+            }
+
+            return null;
+        }
+
+        private RowSet GetRowSet(string persistenceId, long minSequenceNr, long maxSequenceNr)
+        {
+            var from = GetRowKey(persistenceId, minSequenceNr);
+            var to = GetRowKey(persistenceId, maxSequenceNr);
+
+            RowSet rowSet;
+            if (minSequenceNr == maxSequenceNr)
+            {
+                rowSet = RowSet.FromRowKey(from);
+            }
+            else
+            {
+                rowSet = RowSet.FromRowRanges(RowRange.Closed(from, to));
+            }
+
+            return rowSet;
+        }
+
+        private bool SatisfiesTimestampCriteria(SnapshotSelectionCriteria criteria, SnapshotMetadata metadata)
         {
             return
-                snapshot.Metadata.SequenceNr >= criteria.MinSequenceNr &&
-                snapshot.Metadata.SequenceNr <= criteria.MaxSequenceNr &&
-                snapshot.Metadata.Timestamp >= criteria.MinTimestamp &&
-                snapshot.Metadata.Timestamp <= criteria.MaxTimeStamp;
+                metadata.Timestamp >= criteria.MinTimestamp &&
+                metadata.Timestamp <= criteria.MaxTimeStamp;
         }
 
         protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
@@ -114,9 +185,10 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             var snapshotBytes = SnapshotToBytes(metadata, snapshot, Context.System);
             byte[] snapshotMetadataBytes = SnapshotMetadataToBytes(metadata);
             var request = new MutateRowRequest();
+            var version = new BigtableVersion(metadata.Timestamp.ToUniversalTime());
             request.TableNameAsTableName = _tableName;
-            request.Mutations.Add(Mutations.SetCell(_family, SnapshotColumnQualifier, ByteString.CopyFrom(snapshotBytes), new BigtableVersion(-1)));
-            request.Mutations.Add(Mutations.SetCell(_family, SnapshotMetaDataColumnQualifier, ByteString.CopyFrom(snapshotMetadataBytes), new BigtableVersion(-1)));
+            request.Mutations.Add(Mutations.SetCell(_family, SnapshotColumnQualifier, ByteString.CopyFrom(snapshotBytes), version));
+            request.Mutations.Add(Mutations.SetCell(_family, SnapshotMetaDataColumnQualifier, ByteString.CopyFrom(snapshotMetadataBytes), version));
             request.RowKey = GetRowKey(metadata.PersistenceId, metadata.SequenceNr);
             await _bigtableClient.MutateRowAsync(request).ConfigureAwait(false);
         }
@@ -139,19 +211,29 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             }
         }
 
-        private SelectedSnapshot PersistentFromBigtableRow(Row BigtableRow)
+        private SelectedSnapshot PersistentFromBigtableRow(Row row)
         {
-            var snapshotBytes = BigtableRow.Families
+            if (row == null)
+            {
+                return null;
+            }
+
+            var snapshotBytes = row.Families
                 .Single(f => f.Name.Equals(_family)).Columns
                 .Single(c => c.Qualifier.Equals(SnapshotColumnQualifier)).Cells
                 .First().Value.ToArray();
             
-            var snapshotMetaDataBytes = BigtableRow.Families
+            return new SelectedSnapshot(SnapshotMetadataFromBigtableRow(row), SnapshotFromBytes(snapshotBytes).Data);
+        }
+
+        private SnapshotMetadata SnapshotMetadataFromBigtableRow(Row row)
+        {
+            var snapshotMetaDataBytes = row.Families
                 .Single(f => f.Name.Equals(_family)).Columns
                 .Single(c => c.Qualifier.Equals(SnapshotMetaDataColumnQualifier)).Cells
                 .First().Value.ToArray();
 
-            return new SelectedSnapshot(SnapshotMetadataFromBytes(snapshotMetaDataBytes), SnapshotFromBytes(snapshotBytes).Data);
+            return SnapshotMetadataFromBytes(snapshotMetaDataBytes);
         }
 
         private SnapshotMetadata SnapshotMetadataFromBytes(byte[] bytes)
@@ -168,7 +250,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             return $"{persistenceId}{RowKeySeparator}{sequenceNumber.ToString("D19")}";
         }
 
-        public static ByteString GetRowKey(string persistenceId, long sequenceNumber)
+        private static ByteString GetRowKey(string persistenceId, long sequenceNumber)
         {
             return ByteString.CopyFromUtf8(ToRowKeyString(persistenceId, sequenceNumber));
         }

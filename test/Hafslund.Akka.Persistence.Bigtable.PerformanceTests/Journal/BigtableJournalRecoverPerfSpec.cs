@@ -17,7 +17,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Journal
             base.Setup(context);
             _recoveryCounter = context.GetCounter(RecoveryCounterName);
             StoreAllEvents();
-            _supervisor.Ask<AllTerminated>(new TerminateAll(), TimeSpan.FromSeconds(10)).GetAwaiter().GetResult();
+            Supervisor.Ask<AllTerminated>(new TerminateAll(), TimeSpan.FromSeconds(10)).GetAwaiter().GetResult();
         }
 
         [PerfBenchmark(NumberOfIterations = 5, RunMode = RunMode.Iterations,

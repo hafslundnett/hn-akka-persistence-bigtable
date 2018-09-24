@@ -66,9 +66,13 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
                 ToRowKeyBigtableByteString(persistenceId, fromSequenceNr),
                 ToRowKeyBigtableByteString(persistenceId, long.MaxValue));
             var rows = RowSet.FromRowRanges(rowRange);
-            var stream = _bigtableClient.ReadRows(_tableName, rows: rows, filter: RowFilters.StripValueTransformer());
+            var stream = _bigtableClient.ReadRows(
+                _tableName, 
+                rows: rows, 
+                filter: RowFilters.Chain(RowFilters.CellsPerRowLimit(1), RowFilters.StripValueTransformer()));
             var lastRow = await stream.LastOrDefault().ConfigureAwait(false);
-            return lastRow == null ? 0 : GetSequenceNumber(lastRow);
+
+            return lastRow == null ? 0L : GetSequenceNumber(lastRow);
         }
 
         public override async Task ReplayMessagesAsync(IActorContext context, string persistenceId, long fromSequenceNr, long toSequenceNr, long max, Action<IPersistentRepresentation> recoveryCallback)
