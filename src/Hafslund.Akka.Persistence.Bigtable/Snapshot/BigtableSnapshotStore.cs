@@ -128,14 +128,14 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
 
         private byte[] SnapshotToBytes(SnapshotMetadata metadata, object snapshotData, ActorSystem actorSystem)
         { 
-            var selectedSnapshot = new AkkaPersistenceSerialization.Snapshot(snapshotData);
+            var snapshot = new AkkaPersistenceSerialization.Snapshot(snapshotData);
             if (_serializeWithTransport)
             {
-                return Serialization.SerializeWithTransport(actorSystem, _transportSerializationFallbackAddress, () => _snapshotSerializer.ToBinary(selectedSnapshot));
+                return Serialization.SerializeWithTransport(actorSystem, _transportSerializationFallbackAddress, () => _snapshotSerializer.ToBinary(snapshot));
             }
             else
             {
-                return _snapshotSerializer.ToBinary(selectedSnapshot);
+                return _snapshotSerializer.ToBinary(snapshot);
             }
         }
 
