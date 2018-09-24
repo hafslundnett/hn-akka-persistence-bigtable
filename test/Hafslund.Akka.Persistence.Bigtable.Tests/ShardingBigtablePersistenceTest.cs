@@ -10,8 +10,8 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
         {
             var bigtablePersistence = ShardingBigtablePersistence.Get(Sys);
 
-            Assert.Empty(bigtablePersistence.BigtableJournalSettings.TableName);
-            Assert.Empty(bigtablePersistence.BigtableSnapshotSettings.TableName);
+            Assert.Empty(bigtablePersistence.JournalSettings.TableName);
+            Assert.Empty(bigtablePersistence.SnapshotSettings.TableName);
         }
 
         [Fact]

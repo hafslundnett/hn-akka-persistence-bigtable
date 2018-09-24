@@ -2,7 +2,7 @@
 {
     public class ShardingBigtableJournal : BigtableJournal
     {
-        public ShardingBigtableJournal() : base(ShardingBigtablePersistence.Get(Context.System).BigtableJournalSettings)
+        public ShardingBigtableJournal() : base(ShardingBigtablePersistence.Get(Context.System))
         {
         }
     }

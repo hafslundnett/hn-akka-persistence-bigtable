@@ -10,10 +10,10 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
         {
             var bigtablePersistence = BigtablePersistence.Get(Sys);
 
-            Assert.Empty(bigtablePersistence.BigtableJournalSettings.TableName);
-            Assert.Empty(bigtablePersistence.BigtableSnapshotSettings.TableName);
-            Assert.Equal("f", bigtablePersistence.BigtableJournalSettings.FamilyName);
-            Assert.Equal("f", bigtablePersistence.BigtableSnapshotSettings.FamilyName);
+            Assert.Empty(bigtablePersistence.JournalSettings.TableName);
+            Assert.Empty(bigtablePersistence.SnapshotSettings.TableName);
+            Assert.Equal("f", bigtablePersistence.JournalSettings.FamilyName);
+            Assert.Equal("f", bigtablePersistence.SnapshotSettings.FamilyName);
         }
 
         [Fact]

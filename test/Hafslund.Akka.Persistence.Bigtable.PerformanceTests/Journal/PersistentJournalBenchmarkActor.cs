@@ -1,4 +1,5 @@
-﻿using Akka.Actor;
+﻿using System;
+using Akka.Actor;
 using Akka.Persistence;
 
 namespace AkkaIntegration.Tests.Performance.Persistence

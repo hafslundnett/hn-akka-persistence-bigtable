@@ -11,9 +11,12 @@ using Google.Protobuf;
 using System.Linq;
 using Google.Cloud.Bigtable.Common.V2;
 using Akka.Event;
+using Akka.Pattern;
 
 namespace Hafslund.Akka.Persistence.Bigtable.Journal
 {
+
+
     public class BigtableJournal : AsyncWriteJournal
     {
         private static readonly Type PersistentRepresentationType = typeof(IPersistentRepresentation);
@@ -21,27 +24,39 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
         private static readonly char RowKeySeparator = '#';
         private readonly string _family;
         private readonly BigtableClient _bigtableClient;
-
         private readonly TableName _tableName;
         private readonly Serializer _serializer;
         private readonly ILoggingAdapter _log = Context.GetLogger();
+        private readonly Address _transportSerializationFallbackAddress;
+        private readonly bool _serializeWithTransport;
 
-        public BigtableJournal() : this(BigtablePersistence.Get(Context.System).BigtableJournalSettings)
+        public BigtableJournal() : this(BigtablePersistence.Get(Context.System))
         {
         }
 
-        public BigtableJournal(BigtableJournalSettings settings)
+        public BigtableJournal(BigtablePersistence bigtablePersistence) : this(
+            bigtablePersistence.JournalSettings,
+            bigtablePersistence.TransportSerializationSetttings)
         {
-            _log.Info($"{nameof(BigtableJournal)}: constructing, with table name '{settings.TableName}'");
+        }
+
+        public BigtableJournal(BigtableJournalSettings settings, BigtableTransportSerializationSettings transportSerializationSettings)
+        {
+            _log.Debug($"{nameof(BigtableJournal)}: constructing, with table name '{settings.TableName}'");
             _tableName = TableName.Parse(settings.TableName);
             _family = settings.FamilyName;
             _bigtableClient = BigtableClient.Create();
             _serializer = Context.System.Serialization.FindSerializerForType(PersistentRepresentationType);
+            _transportSerializationFallbackAddress = transportSerializationSettings.GetFallbackAddress(Context);
+            _serializeWithTransport = settings.EnableSerializationWithTransport;
+            _transportSerializationFallbackAddress = _serializeWithTransport ? transportSerializationSettings.GetFallbackAddress(Context) : null;
+            _log.Debug($"EnableSerializationWithTransport: {_serializeWithTransport}");
+            _log.Debug($"TransportSerializationFallbackAddress: {_transportSerializationFallbackAddress}");
         }
 
         protected override void PreStart()
         {
-            _log.Info("Initializing Bigtable Journal Storage...");
+            _log.Debug("Initializing Bigtable Journal Storage...");
             base.PreStart();
         }
 
@@ -51,7 +66,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
                 ToRowKeyBigtableByteString(persistenceId, fromSequenceNr),
                 ToRowKeyBigtableByteString(persistenceId, long.MaxValue));
             var rows = RowSet.FromRowRanges(rowRange);
-            var stream = _bigtableClient.ReadRows(_tableName, rows: rows);
+            var stream = _bigtableClient.ReadRows(_tableName, rows: rows, filter: RowFilters.StripValueTransformer());
             var lastRow = await stream.LastOrDefault().ConfigureAwait(false);
             return lastRow == null ? 0 : GetSequenceNumber(lastRow);
         }
@@ -75,8 +90,11 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
                 rowSet = RowSet.FromRowRanges(RowRange.Closed(startKey, endKey));
             }
 
-            var stream = _bigtableClient.ReadRows(_tableName, rows: rowSet, rowsLimit: max);
-
+            var stream = _bigtableClient.ReadRows(_tableName, 
+                rows: rowSet, 
+                filter:RowFilters.CellsPerColumnLimit(1), 
+                rowsLimit: max);
+             
             using (var asyncEnumerator = stream.GetEnumerator())
             {
                 while (await asyncEnumerator.MoveNext().ConfigureAwait(false))
@@ -114,20 +132,31 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
 
         protected override async Task<IImmutableList<Exception>> WriteMessagesAsync(IEnumerable<AtomicWrite> messages)
         {
+            var actorSystem = Context.System;
             foreach (var atomicWrite in messages)
             {
-                if (atomicWrite.HighestSequenceNr - atomicWrite.LowestSequenceNr > 1)
-                {
-                    throw new NotSupportedException("Journal does not support multiple events in a single atomic write");
-                }
-                var persistent = ((IImmutableList<IPersistentRepresentation>)atomicWrite.Payload).Single();
-                var response = await _bigtableClient.CheckAndMutateRowAsync(ToCheckAndMutateRowRequest(persistent)).ConfigureAwait(false);
+                var request = ToBigtableWriteRequest(atomicWrite, actorSystem);
+                var response = await _bigtableClient.CheckAndMutateRowAsync(request).ConfigureAwait(false);
                 if (response.PredicateMatched) // row already existed
                 {
-                    throw new IllegalActorStateException($"The journal event already exists: {persistent.PersistenceId}-{persistent.SequenceNr}");
+                    var msg = $"The journal event already exists: {atomicWrite.PersistenceId}-{atomicWrite.LowestSequenceNr}";
+                    _log.Error(msg);
+                    throw new IllegalActorStateException(msg);
                 }
             }
             return null;
+        }
+
+        private CheckAndMutateRowRequest ToBigtableWriteRequest(AtomicWrite atomicWrite, ActorSystem actorSystem)
+        {
+            if (atomicWrite.HighestSequenceNr != atomicWrite.LowestSequenceNr)
+            {
+                throw new NotSupportedException("Journal does not support multiple events in a single atomic write");
+            }
+
+            var persistent = ((IImmutableList<IPersistentRepresentation>)atomicWrite.Payload).Single();
+
+            return ToMutateRowIfNotExistsRequest(persistent, actorSystem);
         }
 
         private static long GetSequenceNumber(Row bigtableRow)
@@ -147,9 +176,16 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
             return new BigtableByteString(ToRowKeyString(persistenceId, sequenceNumber));
         }
 
-        private byte[] PersistentToBytes(IPersistentRepresentation message)
+        private byte[] PersistentToBytes(IPersistentRepresentation message, ActorSystem system)
         {
-            return _serializer.ToBinary(message);
+            if (_serializeWithTransport)
+            {
+                return Serialization.SerializeWithTransport(system, _transportSerializationFallbackAddress, () => _serializer.ToBinary(message));
+            }
+            else
+            {
+                return _serializer.ToBinary(message);
+            }
         }
 
         private IPersistentRepresentation PersistentFromBytes(byte[] bytes)
@@ -171,20 +207,11 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
             return PersistentFromBytes(byteString.ToArray());
         }
 
-        private MutateRowsRequest.Types.Entry ToBigtableEntry(IPersistentRepresentation persistent)
-        {
-            var entry = new MutateRowsRequest.Types.Entry();
-            entry.RowKey = ByteString.CopyFromUtf8(ToRowKeyString(persistent.PersistenceId, persistent.SequenceNr));
-            var payload = PersistentToBytes(persistent);
-            entry.Mutations.Add(Mutations.SetCell(_family, PayloadColumnQualifier, payload, new BigtableVersion(-1)));
-            return entry;
-        }
-
-        private CheckAndMutateRowRequest ToCheckAndMutateRowRequest(IPersistentRepresentation persistent)
+        private CheckAndMutateRowRequest ToMutateRowIfNotExistsRequest(IPersistentRepresentation persistent, ActorSystem system)
         {
             var request = new CheckAndMutateRowRequest();
             request.TableNameAsTableName = _tableName;
-            var payload = PersistentToBytes(persistent);
+            var payload = PersistentToBytes(persistent, system);
             request.PredicateFilter = RowFilters.PassAllFilter();
             request.RowKey = ByteString.CopyFromUtf8(ToRowKeyString(persistent.PersistenceId, persistent.SequenceNr));
             request.FalseMutations.Add(Mutations.SetCell(_family, PayloadColumnQualifier, payload, new BigtableVersion(-1)));
