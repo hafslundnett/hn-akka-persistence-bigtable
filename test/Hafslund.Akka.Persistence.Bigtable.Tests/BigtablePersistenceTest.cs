@@ -22,6 +22,13 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
             var bigtablePersistence = BigtablePersistence.Get(Sys);
             Assert.NotNull(bigtablePersistence);
             Assert.True(Sys.HasExtension<BigtablePersistence>());
+
+            Assert.Equal("localhost", bigtablePersistence.TransportSerializationSetttings.Hostname);
+            Assert.Equal(2552, bigtablePersistence.TransportSerializationSetttings.Port);
+            Assert.Equal("akka.tcp", bigtablePersistence.TransportSerializationSetttings.TranportProtocol);
+
+            Assert.Equal("f", bigtablePersistence.JournalSettings.FamilyName);
+            Assert.Equal("f", bigtablePersistence.SnapshotSettings.FamilyName);
         }
 
         [Fact]

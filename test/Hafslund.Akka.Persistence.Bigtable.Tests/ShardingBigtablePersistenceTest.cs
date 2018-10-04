@@ -20,6 +20,13 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests
             var shardingBigtablePersistence = ShardingBigtablePersistence.Get(Sys);
             Assert.NotNull(shardingBigtablePersistence);
             Assert.True(Sys.HasExtension<ShardingBigtablePersistence>());
+            
+            Assert.Equal("localhost", shardingBigtablePersistence.TransportSerializationSetttings.Hostname);
+            Assert.Equal(2552, shardingBigtablePersistence.TransportSerializationSetttings.Port);
+            Assert.Equal("akka.tcp", shardingBigtablePersistence.TransportSerializationSetttings.TranportProtocol);
+
+            Assert.Equal("f", shardingBigtablePersistence.JournalSettings.FamilyName);
+            Assert.Equal("f", shardingBigtablePersistence.SnapshotSettings.FamilyName);
         }
 
         [Fact]
