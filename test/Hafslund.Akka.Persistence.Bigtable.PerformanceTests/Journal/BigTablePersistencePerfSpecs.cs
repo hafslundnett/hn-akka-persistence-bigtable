@@ -3,143 +3,76 @@ using Akka.Configuration;
 using Akka.Util.Internal;
 using Google.Cloud.Bigtable.Common.V2;
 using Google.Cloud.Bigtable.V2;
+using Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Journal;
 using NBench;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using Hafslund.Akka.Persistence.Bigtable.PerformanceTests;
 
 namespace AkkaIntegration.Tests.Performance.Persistence
 {
-    public class BigTableJournalPerfSpecs
+    public class BigTableJournalPerfSpecs : BigtablePluginPerfSpec
     {
-        public const string RecoveryCounterName = "MsgRecovered";
-        private Counter _recoveryCounter;
+        protected const int PersistedMessageCount = 100;
 
-        public const string WriteCounterName = "MsgPersisted";
-        private Counter _writeCounter;
-
-        public static AtomicCounter TableVersionCounter = new AtomicCounter(0);
-
-        private static string _tableName = Environment.GetEnvironmentVariable("PERFORMANCE_TEST_JOURNAL_TABLE");
-
-        private static readonly Config SpecConfig =
-            ConfigurationFactory.ParseString(@"
-
-                akka {
-                    serializers {
-                        messagepack = ""Akka.Serialization.MessagePack.MsgPackSerializer, Akka.Serialization.MessagePack""
-                    }
-                    persistence {
-                        auto-start-journals = [""akka.persistence.journal.bigtable""]
-                        publish-plugin-commands = on
-                        journal {
-                            plugin = ""akka.persistence.journal.bigtable""
-                            bigtable {
-                                class = ""Hafslund.Akka.Persistence.Bigtable.Journal.BigtableJournal, Hafslund.Akka.Persistence.Bigtable""
-                                plugin-dispatcher = ""akka.actor.default-dispatcher""
-                                table-name = """ + _tableName + @"""
-                                auto-initialize = on
-                                default-serializer = messagepack
-                            }
-                        }
-                    }
-                }");
-
-
-        public const int PersistentActorCount = 200;
-        public const int PersistedMessageCount = 20;
-
-        public static readonly TimeSpan MaxTimeout = TimeSpan.FromMinutes(6);
-
-        private ActorSystem ActorSystem { get; set; }
-
-        private readonly List<IActorRef> _persistentActors = new List<IActorRef>(PersistentActorCount);
-
-        [PerfSetup]
-        public void Setup(BenchmarkContext context)
-        {
-            _recoveryCounter = context.GetCounter(RecoveryCounterName);
-            _writeCounter = context.GetCounter(WriteCounterName);
-
-
-            ActorSystem = ActorSystem.Create(nameof(BigTableJournalPerfSpecs) + TableVersionCounter.Current, SpecConfig);
-
-            foreach (var i in Enumerable.Range(0, PersistentActorCount))
-            {
-                var id = "persistent" + Guid.NewGuid();
-                var actorRef =
-                    ActorSystem.ActorOf(
-                        Props.Create(() => new PersistentJournalBenchmarkActor(id)),
-                        id);
-
-                _persistentActors.Add(actorRef);
-            }
-
-            // force the system to initialize
-            Task.WaitAll(_persistentActors.Select(a => a.Ask<PersistentBenchmarkMsgs.Done>(PersistentBenchmarkMsgs.Init.Instance)).Cast<Task>().ToArray());
-        }
-
-        [PerfBenchmark(NumberOfIterations = 5, RunMode = RunMode.Iterations,
-            Description = "Write performance spec by 200 persistent actors", SkipWarmups = true)]
-        [CounterMeasurement(RecoveryCounterName)]
-        [CounterMeasurement(WriteCounterName)]
-        [GcMeasurement(GcMetric.TotalCollections, GcGeneration.AllGc)]
-        [MemoryMeasurement(MemoryMetric.TotalBytesAllocated)]
-        [TimingMeasurement]
-        public void BatchJournalWriteSpec(BenchmarkContext context)
+        protected Task<PersistentBenchmarkMsgs.Finished>[] StoreAllEvents()
         {
             for (int i = 0; i < PersistedMessageCount; i++)
                 for (int j = 0; j < PersistentActorCount; j++)
                 {
-                    _persistentActors[j].Tell(new PersistentBenchmarkMsgs.Store(1));
+                    Supervisor.Tell(new BenchmarkActorMessage(PersistentActorIds[j], new PersistentBenchmarkMsgs.Store(1)));
                 }
 
             var finished = new Task<PersistentBenchmarkMsgs.Finished>[PersistentActorCount];
             for (int i = 0; i < PersistentActorCount; i++)
             {
-                var task = _persistentActors[i]
-                    .Ask<PersistentBenchmarkMsgs.Finished>(PersistentBenchmarkMsgs.Finish.Instance, MaxTimeout);
+                var task = Supervisor
+                    .Ask<PersistentBenchmarkMsgs.Finished>(new BenchmarkActorMessage(PersistentActorIds[i], PersistentBenchmarkMsgs.Finish.Instance), MaxTimeout);
 
                 finished[i] = task;
             }
 
             Task.WaitAll(finished.Cast<Task>().ToArray());
-            foreach (var task in finished.Where(x => x.IsCompleted))
+
+            return finished;
+        }
+
+        protected Task<PersistentBenchmarkMsgs.Finished>[] RecoverAllEvents()
+        {
+            var recovered = new Task<PersistentBenchmarkMsgs.Finished>[PersistentActorCount];
+            for (int i = 0; i < PersistentActorCount; i++)
             {
-                _writeCounter.Increment(task.Result.State);
+                var task = Supervisor
+                    .Ask<PersistentBenchmarkMsgs.Finished>(new BenchmarkActorMessage(PersistentActorIds[i], PersistentBenchmarkMsgs.Finish.Instance), MaxTimeout);
+
+                recovered[i] = task;
             }
+
+            Task.WaitAll(recovered.Cast<Task>().ToArray());
+            return recovered;
         }
 
         [PerfCleanup]
         public void CleanUp(BenchmarkContext context)
         {
+            context.Trace.Info("Started cleanup");
             ActorSystem.Terminate().Wait();
-
             try
             {
-                var bigtableClient = BigtableClient.Create();
-                var stream = bigtableClient.ReadRows(TableName.Parse(_tableName));
-
-                var deleteRows = new List<MutateRowsRequest.Types.Entry>();
-
-                using (var enumerator = stream.GetEnumerator())
+                foreach (var pid in PersistentActorIds)
                 {
-                    while (enumerator.MoveNext().GetAwaiter().GetResult())
-                    {
-                        deleteRows.Add(Mutations.CreateEntry(enumerator.Current.Key, Mutations.DeleteFromRow()));
-                    }
-                }
-
-                if (deleteRows.Any())
-                {
-                    bigtableClient.MutateRows(TableName.Parse(_tableName), deleteRows);
+                    DeleteRows(JournalTable, pid);
                 }
             }
             catch (Exception ex)
             {
                 context.Trace.Error(ex, "Error occured during benchmark cleanup");
             }
+
+            context.Trace.Info("Finished cleanup");
         }
     }
 }

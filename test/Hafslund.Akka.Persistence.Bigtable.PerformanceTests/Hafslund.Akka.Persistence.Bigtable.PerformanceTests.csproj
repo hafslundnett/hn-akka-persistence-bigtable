@@ -8,14 +8,23 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.7.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.7.0" />
     <PackageReference Include="NBench" Version="1.2.2" />
     <PackageReference Include="Akka.Serialization.MessagePack" Version="1.1.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="2.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="2.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.json" Version="2.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Environmentvariables" Version="2.1.1" />
     <DotNetCliToolReference Include="dotnet-nbench" Version="1.2.2" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Hafslund.Akka.Persistence.Bigtable\Hafslund.Akka.Persistence.Bigtable.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.Development.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

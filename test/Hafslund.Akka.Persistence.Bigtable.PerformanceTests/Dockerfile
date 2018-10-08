@@ -1,4 +1,4 @@
-FROM google/cloud-sdk:slim
+FROM google/cloud-sdk:214.0.0-slim
 
 # Install .NET CLI dependencies
 RUN apt-get update \
@@ -50,6 +50,7 @@ RUN dotnet build test/Hafslund.Akka.Persistence.Bigtable.PerformanceTests
 # Run tests
 ENV SA_KEY=""
 ENV PERFORMANCE_TEST_JOURNAL_TABLE=""
+ENV PERFORMANCE_TEST_SNAPSHOT_STORE_TABLE=""
 ENV GOOGLE_APPLICATION_CREDENTIALS=/app/_key.json
 ENTRYPOINT echo $SA_KEY | base64 -d > _key.json \
     && gcloud auth activate-service-account --key-file=_key.json \

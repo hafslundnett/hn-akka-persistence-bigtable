@@ -2,7 +2,7 @@
 {
     public class ShardingBigtableSnapshotStore : BigtableSnapshotStore
     {
-        public ShardingBigtableSnapshotStore() : base(ShardingBigtablePersistence.Get(Context.System).BigtableSnapshotSettings)
+        public ShardingBigtableSnapshotStore() : base(ShardingBigtablePersistence.Get(Context.System))
         {
         }
     }

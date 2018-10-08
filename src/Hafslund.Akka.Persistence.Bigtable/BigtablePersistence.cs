@@ -11,15 +11,18 @@ namespace Hafslund.Akka.Persistence.Bigtable
     /// </summary>
     public class BigtablePersistence : IExtension
     {
-        public BigtablePersistence(BigtableJournalSettings bigtableJournalSettings, BigtableSnapshotSettings bigtableSnapshotSettings)
+        public BigtablePersistence(BigtableJournalSettings bigtableJournalSettings, BigtableSnapshotSettings bigtableSnapshotSettings, BigtableTransportSerializationSettings transportSerialization)
         {
-            BigtableJournalSettings = bigtableJournalSettings;
-            BigtableSnapshotSettings = bigtableSnapshotSettings;
+            JournalSettings = bigtableJournalSettings;
+            SnapshotSettings = bigtableSnapshotSettings;
+            TransportSerializationSetttings = transportSerialization;
         }
 
-        public BigtableJournalSettings BigtableJournalSettings { get; }
+        public BigtableJournalSettings JournalSettings { get; }
 
-        public BigtableSnapshotSettings BigtableSnapshotSettings { get; }
+        public BigtableSnapshotSettings SnapshotSettings { get; }
+
+        public BigtableTransportSerializationSettings TransportSerializationSetttings { get; }
 
         /// <summary>
         ///     The default HOCON configuration for <see cref="BigtablePersistence" />.

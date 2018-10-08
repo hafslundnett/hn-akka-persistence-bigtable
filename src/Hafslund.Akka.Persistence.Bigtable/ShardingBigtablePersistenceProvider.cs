@@ -20,8 +20,12 @@ namespace Hafslund.Akka.Persistence.Bigtable
             var snapshotSettings = 
                 BigtableSnapshotSettings.Create(
                     system.Settings.Config.GetConfig("akka.persistence.snapshot-store.bigtable-sharding"));
+            
+            var transportSerializationSetttings = 
+                BigtableTransportSerializationSettings.Create(
+                    system.Settings.Config.GetConfig("akka.persistence.transport-serialization.bigtable"));
 
-            return new ShardingBigtablePersistence(journalSettings, snapshotSettings);
+            return new ShardingBigtablePersistence(journalSettings, snapshotSettings, transportSerializationSetttings);
         }
     }
 }

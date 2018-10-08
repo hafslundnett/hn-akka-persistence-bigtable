@@ -7,18 +7,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Akka" Version="1.3.8" />
-    <PackageReference Include="Akka.Persistence.TCK" Version="1.3.8" />
-    <PackageReference Include="Akka.TestKit.Xunit2" Version="1.3.8" />
-    <PackageReference Include="Google.Cloud.Bigtable.Common.V2" Version="1.0.0-beta02" />
-    <PackageReference Include="Google.Cloud.Bigtable.V2" Version="1.0.0-beta02" />
+    <PackageReference Include="Akka.Persistence.TCK" Version="1.3.9" />
+    <PackageReference Include="Akka.TestKit.Xunit2" Version="1.3.9" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.8.0" />
+    <PackageReference Include="Moq" Version="4.10.0" />
     <PackageReference Include="xunit" Version="2.3.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.3.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="2.1.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="2.1.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.json" Version="2.1.1" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Environmentvariables" Version="2.1.1" />
+    <PackageReference Include="Akka.Serialization.MessagePack" Version="1.1.0" />
   </ItemGroup>
 
   <ItemGroup>

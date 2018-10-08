@@ -50,5 +50,24 @@
                 Value = value;
             }
         }
+        public sealed class TakeSnapshot
+        {
+            public readonly object Data;
+
+            public TakeSnapshot(object data)
+            {
+                Data = data;
+            }
+        }
+
+        public sealed class TookSnapshot
+        {
+            public static readonly TookSnapshot Instance = new TookSnapshot();
+        }
+
+        public sealed class SnapshotFailed
+        {
+            public static readonly SnapshotFailed Instance = new SnapshotFailed();
+        }
     }
 }
