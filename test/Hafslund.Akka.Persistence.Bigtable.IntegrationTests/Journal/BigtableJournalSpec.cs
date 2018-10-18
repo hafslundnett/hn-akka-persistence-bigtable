@@ -14,7 +14,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Xunit;
 
-namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Journal
+namespace Hafslund.Akka.Persistence.Bigtable.IntegrationTests.Journal
 {
     public class BigtableJournalSpec : JournalSpec
     {

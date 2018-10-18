@@ -17,14 +17,13 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
     public class BigtableSnapshotStore : SnapshotStore
     {
         private static readonly ByteString SnapshotColumnQualifier = ByteString.CopyFromUtf8("s");
-        private static readonly ByteString SnapshotMetaDataColumnQualifier = ByteString.CopyFromUtf8("m");
+        private static readonly ByteString TimestampColumnQualifier = ByteString.CopyFromUtf8("t");
         private static readonly string RowKeySeparator = "#";
         private readonly string _family;
         private readonly BigtableClient _bigtableClient;
         private readonly TableName _tableName;
         private readonly ILoggingAdapter _log = Context.GetLogger();
         private readonly Serializer _snapshotSerializer;
-        private readonly Serializer _snapshotMetadataSerializer;
         private readonly Address _transportSerializationFallbackAddress;
         private readonly bool _serializeWithTransport;
 
@@ -45,7 +44,6 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             _family = settings.FamilyName;
             _bigtableClient = BigtableClient.Create();
             _snapshotSerializer = Context.System.Serialization.FindSerializerForType(typeof(AkkaPersistenceSerialization.Snapshot));
-            _snapshotMetadataSerializer = Context.System.Serialization.FindSerializerForType(typeof(SnapshotMetadata));
             _serializeWithTransport = settings.EnableSerializationWithTransport;
             _transportSerializationFallbackAddress = _serializeWithTransport ? transportSerializationSettings.GetFallbackAddress(Context) : null;
 
@@ -72,14 +70,14 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
         {
             var filter = RowFilters.Chain
             (
-                RowFilters.ColumnQualifierExact(SnapshotMetaDataColumnQualifier),
+                RowFilters.ColumnQualifierExact(TimestampColumnQualifier),
                 // this filter ensures that we only download snapshot metadata
+                RowFilters.CellsPerColumnLimit(1),
                 RowFilters.TimestampRange(
                     ToUtc(criteria.MinTimestamp),
                     ToUtc(criteria.MaxTimeStamp)?.AddMilliseconds(1)
                     // add a milliseconds since the upper bound is exclusive
-                    ),
-                RowFilters.CellsPerColumnLimit(1)
+                    )
             );
 
             var readRowsRequest = new ReadRowsRequest
@@ -91,9 +89,8 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
 
             var deleteMutations = await _bigtableClient
                 .ReadRows(readRowsRequest)
-                .Select(SnapshotMetadataFromBigtableRow)
-                .Where(metadata => SatisfiesTimestampCriteria(criteria, metadata))
-                .Select(metadata => Mutations.CreateEntry(GetRowKey(persistenceId, metadata.SequenceNr), Mutations.DeleteFromRow()))
+                .Where(row => SatisfiesTimestampCriteria(criteria, SnapshotMetadataFromBigtableRow(row)))
+                .Select(row => Mutations.CreateEntry(row.Key, Mutations.DeleteFromRow()))
                 .ToList()
                 .ConfigureAwait(false);
 
@@ -183,23 +180,60 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
         protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
         {
             var snapshotBytes = SnapshotToBytes(metadata, snapshot, Context.System);
-            byte[] snapshotMetadataBytes = SnapshotMetadataToBytes(metadata);
+            var timestampUtc = metadata.Timestamp.ToUniversalTime();
+            var timestampBytes = ByteString.CopyFrom(GetBytes(timestampUtc));
+
             var request = new MutateRowRequest();
-            var version = new BigtableVersion(metadata.Timestamp.ToUniversalTime());
+            var version = new BigtableVersion(timestampUtc);
             request.TableNameAsTableName = _tableName;
             request.Mutations.Add(Mutations.SetCell(_family, SnapshotColumnQualifier, ByteString.CopyFrom(snapshotBytes), version));
-            request.Mutations.Add(Mutations.SetCell(_family, SnapshotMetaDataColumnQualifier, ByteString.CopyFrom(snapshotMetadataBytes), version));
+            request.Mutations.Add(Mutations.SetCell(_family, TimestampColumnQualifier, timestampBytes, version));
             request.RowKey = GetRowKey(metadata.PersistenceId, metadata.SequenceNr);
             await _bigtableClient.MutateRowAsync(request).ConfigureAwait(false);
         }
 
-        private byte[] SnapshotMetadataToBytes(SnapshotMetadata metadata)
+        private byte[] GetBytes(DateTime dateTime)
         {
-            return _snapshotMetadataSerializer.ToBinary(metadata);
+            var bytes = BitConverter.GetBytes(dateTime.Ticks);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(bytes);
+            }
+
+            return bytes;
+        }
+
+        private DateTime GetTimestamp(Row row)
+        {
+            var bytes = row.Families
+                .Single(f => f.Name.Equals(_family)).Columns
+                .Single(c => c.Qualifier.Equals(TimestampColumnQualifier)).Cells
+                .First().Value.ToByteArray();
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(bytes);
+            }
+
+            var ticks = BitConverter.ToInt64(bytes, 0);
+            return new DateTime(ticks, DateTimeKind.Utc);
+        }
+
+        private SnapshotMetadata SnapshotMetadataFromBigtableRow(Row row)
+        {
+            var rowKey = row.Key.ToStringUtf8();
+            var rowKeySeparatorIndex = rowKey.LastIndexOf(RowKeySeparator);
+            var pid = rowKey.Substring(0, rowKeySeparatorIndex);
+            long sequenceNumber = long.Parse(rowKey.Substring(rowKeySeparatorIndex + 1));
+
+            var timestamp = GetTimestamp(row);
+
+            return new SnapshotMetadata(pid, sequenceNumber, timestamp);
         }
 
         private byte[] SnapshotToBytes(SnapshotMetadata metadata, object snapshotData, ActorSystem actorSystem)
-        { 
+        {
             var snapshot = new AkkaPersistenceSerialization.Snapshot(snapshotData);
             if (_serializeWithTransport)
             {
@@ -222,23 +256,8 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
                 .Single(f => f.Name.Equals(_family)).Columns
                 .Single(c => c.Qualifier.Equals(SnapshotColumnQualifier)).Cells
                 .First().Value.ToArray();
-            
+
             return new SelectedSnapshot(SnapshotMetadataFromBigtableRow(row), SnapshotFromBytes(snapshotBytes).Data);
-        }
-
-        private SnapshotMetadata SnapshotMetadataFromBigtableRow(Row row)
-        {
-            var snapshotMetaDataBytes = row.Families
-                .Single(f => f.Name.Equals(_family)).Columns
-                .Single(c => c.Qualifier.Equals(SnapshotMetaDataColumnQualifier)).Cells
-                .First().Value.ToArray();
-
-            return SnapshotMetadataFromBytes(snapshotMetaDataBytes);
-        }
-
-        private SnapshotMetadata SnapshotMetadataFromBytes(byte[] bytes)
-        {
-            return _snapshotMetadataSerializer.FromBinary<SnapshotMetadata>(bytes);
         }
 
         private AkkaPersistenceSerialization.Snapshot SnapshotFromBytes(byte[] bytes)
