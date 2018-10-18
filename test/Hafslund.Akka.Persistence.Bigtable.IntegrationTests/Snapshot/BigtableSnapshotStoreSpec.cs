@@ -10,7 +10,7 @@ using Hafslund.Akka.Persistence.Bigtable.IntegrationTests;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 
-namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Snapshot
+namespace Hafslund.Akka.Persistence.Bigtable.IntegrationTests.Snapshot
 {
     public class BigtableSnapshotStoreSpec : SnapshotStoreSpec
     {
@@ -39,11 +39,12 @@ namespace Hafslund.Akka.Persistence.Bigtable.Tests.Integration.Snapshot
                 .WithFallback(ConfigurationFactory.ParseString(@"
                 akka {
                     actor {
-                        serialize-messages = on
                         serializers {
+                            messagepack = ""Akka.Serialization.MessagePack.MsgPackSerializer, Akka.Serialization.MessagePack""
                             actor-ref-wrapper-serializer = ""Hafslund.Akka.Persistence.Bigtable.IntegrationTests.ActorRefWrapperSerializer, Hafslund.Akka.Persistence.Bigtable.IntegrationTests""
                         }
                         serialization-bindings {
+                            ""System.Object"" = messagepack
                             ""Hafslund.Akka.Persistence.Bigtable.IntegrationTests.ActorRefWrapper, Hafslund.Akka.Persistence.Bigtable.IntegrationTests"" = actor-ref-wrapper-serializer
                         }
                         serialization-identifiers {
