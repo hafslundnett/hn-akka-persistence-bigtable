@@ -71,13 +71,9 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             var filter = RowFilters.Chain
             (
                 RowFilters.ColumnQualifierExact(TimestampColumnQualifier),
-                // this filter ensures that we only download snapshot metadata
                 RowFilters.CellsPerColumnLimit(1),
-                RowFilters.TimestampRange(
-                    ToUtc(criteria.MinTimestamp),
-                    ToUtc(criteria.MaxTimeStamp)?.AddMilliseconds(1)
-                    // add a milliseconds since the upper bound is exclusive
-                    )
+                RowFilters.ValueRange(ValueRange.Closed(GetByteString(criteria.MinTimestamp), GetByteString(criteria.MaxTimeStamp))),
+                RowFilters.StripValueTransformer()
             );
 
             var readRowsRequest = new ReadRowsRequest
@@ -89,7 +85,6 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
 
             var deleteMutations = await _bigtableClient
                 .ReadRows(readRowsRequest)
-                .Where(row => SatisfiesTimestampCriteria(criteria, SnapshotMetadataFromBigtableRow(row)))
                 .Select(row => Mutations.CreateEntry(row.Key, Mutations.DeleteFromRow()))
                 .ToList()
                 .ConfigureAwait(false);
@@ -110,9 +105,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             return await _bigtableClient
                 .ReadRows(GetReadRowsRequest(persistenceId, criteria))
                 .Select(PersistentFromBigtableRow)
-                .OrderByDescending(snapshot => snapshot.Metadata.SequenceNr)
-                .ThenByDescending(snapshot => snapshot.Metadata.Timestamp)
-                .FirstOrDefault(snapshot => SatisfiesTimestampCriteria(criteria, snapshot.Metadata))
+                .FirstOrDefault()
                 .ConfigureAwait(false);
         }
 
@@ -120,13 +113,8 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
         {
             var filter = RowFilters.Chain
             (
-                RowFilters.TimestampRange(
-                    ToUtc(criteria.MinTimestamp)?.AddMilliseconds(-1),
-                    // subtract millisecond since bigtable only has millisecond granularity 
-                    ToUtc(criteria.MaxTimeStamp)?.AddMilliseconds(1)
-                    // add a milliseconds since the upper bound is exclusive
-                    ),
-                RowFilters.CellsPerColumnLimit(1)
+                RowFilters.CellsPerColumnLimit(1),
+                RowFilters.ValueRange(ValueRange.Closed(GetByteString(criteria.MinTimestamp), GetByteString(criteria.MaxTimeStamp)))
             );
             return new ReadRowsRequest
             {
@@ -136,17 +124,11 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             };
         }
 
-        private DateTime? ToUtc(DateTime? dateTime)
+        private BigtableByteString? GetByteString(DateTime? date)
         {
-            if (dateTime.HasValue)
+            if (date.HasValue)
             {
-                var dt = dateTime.Value.ToUniversalTime();
-                if (dt.Year <= 1 || dt.Year >= 9999)
-                {
-                    return null;
-                }
-
-                return dt;
+                return ByteString.CopyFrom(GetBytes(date.Value));
             }
 
             return null;
@@ -154,8 +136,8 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
 
         private RowSet GetRowSet(string persistenceId, long minSequenceNr, long maxSequenceNr)
         {
-            var from = GetRowKey(persistenceId, minSequenceNr);
-            var to = GetRowKey(persistenceId, maxSequenceNr);
+            var from = GetRowKey(persistenceId, maxSequenceNr);
+            var to = GetRowKey(persistenceId, minSequenceNr);
 
             RowSet rowSet;
             if (minSequenceNr == maxSequenceNr)
@@ -168,13 +150,6 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             }
 
             return rowSet;
-        }
-
-        private bool SatisfiesTimestampCriteria(SnapshotSelectionCriteria criteria, SnapshotMetadata metadata)
-        {
-            return
-                metadata.Timestamp >= criteria.MinTimestamp &&
-                metadata.Timestamp <= criteria.MaxTimeStamp;
         }
 
         protected override async Task SaveAsync(SnapshotMetadata metadata, object snapshot)
@@ -225,7 +200,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             var rowKey = row.Key.ToStringUtf8();
             var rowKeySeparatorIndex = rowKey.LastIndexOf(RowKeySeparator);
             var pid = rowKey.Substring(0, rowKeySeparatorIndex);
-            long sequenceNumber = long.Parse(rowKey.Substring(rowKeySeparatorIndex + 1));
+            long sequenceNumber = long.MaxValue - long.Parse(rowKey.Substring(rowKeySeparatorIndex + 1));
 
             var timestamp = GetTimestamp(row);
 
@@ -266,13 +241,12 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
         }
         private static string ToRowKeyString(string persistenceId, long sequenceNumber)
         {
-            return $"{persistenceId}{RowKeySeparator}{sequenceNumber.ToString("D19")}";
+            return $"{persistenceId}{RowKeySeparator}{(long.MaxValue - sequenceNumber).ToString("D19")}";
         }
 
         private static ByteString GetRowKey(string persistenceId, long sequenceNumber)
         {
             return ByteString.CopyFromUtf8(ToRowKeyString(persistenceId, sequenceNumber));
         }
-
     }
 }
