@@ -45,13 +45,18 @@ namespace Hafslund.Akka.Persistence.Bigtable.Journal
             _log.Debug($"{nameof(BigtableJournal)}: constructing, with table name '{settings.TableName}'");
             _tableName = TableName.Parse(settings.TableName);
             _family = settings.FamilyName;
-            _bigtableClient = BigtableClient.Create();
+            _bigtableClient = CreateBigtableClient();
             _serializer = Context.System.Serialization.FindSerializerForType(PersistentRepresentationType);
             _transportSerializationFallbackAddress = transportSerializationSettings.GetFallbackAddress(Context);
             _serializeWithTransport = settings.EnableSerializationWithTransport;
             _transportSerializationFallbackAddress = _serializeWithTransport ? transportSerializationSettings.GetFallbackAddress(Context) : null;
             _log.Debug($"EnableSerializationWithTransport: {_serializeWithTransport}");
             _log.Debug($"TransportSerializationFallbackAddress: {_transportSerializationFallbackAddress}");
+        }
+
+        protected virtual BigtableClient CreateBigtableClient()
+        {
+            return BigtableClient.Create();
         }
 
         protected override void PreStart()

@@ -1,31 +1,69 @@
-using System.Collections.Generic;
-using System.Linq;
-using Google.Cloud.Bigtable.Common.V2;
+using System;
+using System.Threading;
+using Google.Api.Gax.Grpc;
+using Google.Cloud.Bigtable.Admin.V2;
 using Google.Cloud.Bigtable.V2;
+using Grpc.Core;
+using TableName = Google.Cloud.Bigtable.Admin.V2.TableName;
 
 namespace Hafslund.Akka.Persistence.Bigtable.IntegrationTests
 {
     public static class BigtableTestUtils
     {
-        public static void DeleteRows(string tableName, RowRange rowRange)
+        private const string Family = "f";
+
+        private static string ProjectId { get; set; }
+        private static string InstanceId { get; set; }
+        public static BigtableClient Client { get; private set; }
+        private static BigtableTableAdminClient AdminClient { get; set; }
+
+        private static TableName GetTableName(string tableName)
         {
-            var bigtableClient = BigtableClient.Create();
-            var stream = bigtableClient.ReadRows(Google.Cloud.Bigtable.Common.V2.TableName.Parse(tableName), RowSet.FromRowRanges(rowRange));
+            return new TableName(ProjectId, InstanceId, tableName);
+        }
 
-            var deleteRows = new List<MutateRowsRequest.Types.Entry>();
+        public static void InitializeWithEmulator(string host, string projectId, string instanceId, string tableName)
+        {
+            var channel = new Channel(host, ChannelCredentials.Insecure);
+            Client = BigtableClient.Create(BigtableServiceApiClient.Create(channel));
+            AdminClient = BigtableTableAdminClient.Create(channel);
+            ProjectId = projectId;
+            InstanceId = instanceId;
+            
+            CreateTable(GetTableName(tableName));            
+        }
 
-            using (var enumerator = stream.GetEnumerator())
+        private static void CreateTable(TableName tableName)
+        {
+            Table table = null;
+
+            try
             {
-                while (enumerator.MoveNext().GetAwaiter().GetResult())
+                table = AdminClient.GetTable(tableName,
+                    CallSettings.FromCancellationToken(new CancellationTokenSource(TimeSpan.FromSeconds(10)).Token));
+            }
+            catch (RpcException e) 
+            {   
+                if (e.StatusCode != StatusCode.NotFound) // StatusCode.NotFound means that the table does not exist
                 {
-                    deleteRows.Add(Mutations.CreateEntry(enumerator.Current.Key, Mutations.DeleteFromRow()));
+                    throw new AggregateException("Operation cancelled. Probably the bigtable emulator is not running. Run: 'gcloud beta emulators bigtable start'", e);
                 }
             }
 
-            if (deleteRows.Any())
+            if (table != null)
             {
-                bigtableClient.MutateRows(Google.Cloud.Bigtable.Common.V2.TableName.Parse(tableName), deleteRows);
+                AdminClient.DeleteTable(tableName);
             }
+
+            var createTableRequest = new CreateTableRequest
+            {
+                TableId = tableName.TableId,
+                Table = new Table(),
+                ParentAsInstanceName = new InstanceName(tableName.ProjectId, tableName.InstanceId)
+            };
+
+            createTableRequest.Table.ColumnFamilies.Add(Family, new ColumnFamily());
+            AdminClient.CreateTable(createTableRequest);
         }
     }
 }

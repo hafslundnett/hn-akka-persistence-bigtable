@@ -42,7 +42,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
 
             _tableName = TableName.Parse(settings.TableName);
             _family = settings.FamilyName;
-            _bigtableClient = BigtableClient.Create();
+            _bigtableClient = CreateBigtableClient();
             _snapshotSerializer = Context.System.Serialization.FindSerializerForType(typeof(AkkaPersistenceSerialization.Snapshot));
             _serializeWithTransport = settings.EnableSerializationWithTransport;
             _transportSerializationFallbackAddress = _serializeWithTransport ? transportSerializationSettings.GetFallbackAddress(Context) : null;
@@ -50,6 +50,11 @@ namespace Hafslund.Akka.Persistence.Bigtable.Snapshot
             _log.Debug($"{nameof(BigtableSnapshotStore)}: constructing, with table name '{settings.TableName}'");
             _log.Debug($"EnableSerializationWithTransport: {_serializeWithTransport}");
             _log.Debug($"TransportSerializationFallbackAddress: {_transportSerializationFallbackAddress}");
+        }
+
+        protected virtual BigtableClient CreateBigtableClient()
+        {
+            return BigtableClient.Create();
         }
 
         protected override void PreStart()
