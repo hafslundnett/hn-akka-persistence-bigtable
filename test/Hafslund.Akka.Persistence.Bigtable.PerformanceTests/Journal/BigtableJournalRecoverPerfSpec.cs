@@ -1,8 +1,6 @@
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 using Akka.Actor;
-using AkkaIntegration.Tests.Performance.Persistence;
 using NBench;
 
 namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Journal
@@ -14,6 +12,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Journal
 
         public override void Setup(BenchmarkContext context)
         {
+            ReInitializeTable(JournalTable);
             base.Setup(context);
             _recoveryCounter = context.GetCounter(RecoveryCounterName);
             StoreAllEvents();
@@ -23,7 +22,6 @@ namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Journal
         [PerfBenchmark(NumberOfIterations = 5, RunMode = RunMode.Iterations,
             Description = "Recovery performance spec by 200 persistent actors", SkipWarmups = true)]
         [CounterMeasurement(RecoveryCounterName)]
-        //[CounterMeasurement(WriteCounterName)]
         [GcMeasurement(GcMetric.TotalCollections, GcGeneration.AllGc)]
         [MemoryMeasurement(MemoryMetric.TotalBytesAllocated)]
         [TimingMeasurement]

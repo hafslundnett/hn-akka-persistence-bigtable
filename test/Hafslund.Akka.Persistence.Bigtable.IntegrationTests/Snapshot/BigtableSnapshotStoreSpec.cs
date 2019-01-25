@@ -1,20 +1,23 @@
 using System;
-using System.Collections.Generic;
-using Akka.Actor;
 using Akka.Configuration;
 using Akka.Persistence;
 using Akka.Persistence.TCK.Snapshot;
-using Google.Cloud.Bigtable.Common.V2;
-using Google.Cloud.Bigtable.V2;
-using Hafslund.Akka.Persistence.Bigtable.IntegrationTests;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 
 namespace Hafslund.Akka.Persistence.Bigtable.IntegrationTests.Snapshot
 {
+    /// <summary>
+    /// To run tests locally, first run: gcloud beta emulators bigtable start --host-port localhost:8090
+    /// </summary>
     public class BigtableSnapshotStoreSpec : SnapshotStoreSpec
     {
-        private readonly static string TableName;
+        public static readonly string Host = GetEnvOrDefault("BIGTABLE_EMULATOR_HOST", "localhost:8090");
+
+        private const string ProjectId = "my-project";
+        private const string InstanceId = "my-instance";
+
+        private static readonly string TableName = "SnapshotStoreSpec";
         private static readonly Config SpecConfig;
 
         public static IConfigurationRoot ReadConfig()
@@ -25,17 +28,16 @@ namespace Hafslund.Akka.Persistence.Bigtable.IntegrationTests.Snapshot
                 .Build();
         }
 
+        private static string GetTablePath()
+        {
+            return $"projects/{ProjectId}/instances/{InstanceId}/tables/{TableName}";
+        }
+
         static BigtableSnapshotStoreSpec()
         {
-            var config = ReadConfig();
-
-            var timeFactor = int.Parse(config.GetValue("INTEGRATION_TEST_TIME_FACTOR", "1"));
-            Console.WriteLine($"BigtableSnapshotStoreSpec timefactor: {timeFactor}");
-
-            TableName = config.GetValue("INTEGRATION_TEST_SNAPSHOT_STORE_TABLE", "NOT_SET");
             Console.WriteLine($"BigtableSnapshotStoreSpec bigtable table: {TableName}");
 
-            SpecConfig = ConfigurationFactory.ParseString($"akka.test.timefactor={timeFactor}")
+            SpecConfig = ConfigurationFactory.ParseString($"akka.test.timefactor=10")
                 .WithFallback(ConfigurationFactory.ParseString(@"
                 akka {
                     actor {
@@ -64,26 +66,24 @@ namespace Hafslund.Akka.Persistence.Bigtable.IntegrationTests.Snapshot
                             plugin = ""akka.persistence.snapshot-store.bigtable""
                             bigtable {
                                 enable-serialization-with-transport = true
-                                class = ""Hafslund.Akka.Persistence.Bigtable.Snapshot.BigtableSnapshotStore, Hafslund.Akka.Persistence.Bigtable""
+                                class = ""Hafslund.Akka.Persistence.Bigtable.IntegrationTests.Snapshot.BigtableSnapshotStoreTester, Hafslund.Akka.Persistence.Bigtable.IntegrationTests""
                                 plugin-dispatcher = ""akka.actor.default-dispatcher""
-                                table-name = """ + TableName + @"""
+                                table-name = """ + GetTablePath() + @"""
                                 auto-initialize = on
                             }
                         }
                     }
                 }"));
         }
+        private static string GetEnvOrDefault(string name, string defaultValue)
+        {
+            return Environment.GetEnvironmentVariable(name) ?? defaultValue;
+        }
 
         public BigtableSnapshotStoreSpec() : base(SpecConfig)
         {
-            ClearTable();
+            BigtableTestUtils.InitializeWithEmulator(Host, ProjectId, InstanceId, TableName);
             Initialize();
-        }
-
-        private void ClearTable()
-        {
-            var rowRange = RowRange.Closed(new BigtableByteString($"{Pid}"), new BigtableByteString($"{Pid}~"));
-            BigtableTestUtils.DeleteRows(TableName, rowRange);
         }
 
         [Fact]

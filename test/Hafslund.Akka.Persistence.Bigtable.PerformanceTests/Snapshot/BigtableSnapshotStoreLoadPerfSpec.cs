@@ -1,8 +1,6 @@
-using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Akka.Actor;
-using AkkaIntegration.Tests.Performance.Persistence;
 using Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Journal;
 using NBench;
 
@@ -17,6 +15,9 @@ namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Snapshot
 
         public override void Setup(BenchmarkContext context)
         {
+            ReInitializeTable(SnapshotStoreTable);
+            ReInitializeTable(JournalTable);
+
             base.Setup(context);
             _snapshotLoadCounter = context.GetCounter(SnapshotLoadCounterName);
             _recoveryCounter = context.GetCounter(RecoveryCounterName);

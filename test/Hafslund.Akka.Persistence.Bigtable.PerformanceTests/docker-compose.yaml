@@ -1,0 +1,14 @@
+version: '3'
+services:
+  akkapersistenceperformancetests:
+    build: 
+      dockerfile: test/Hafslund.Akka.Persistence.Bigtable.PerformanceTests/Dockerfile
+      context: ../../
+    links:
+      - bigtable
+    environment:
+      - BIGTABLE_EMULATOR_HOST=bigtable:8091
+  bigtable:
+    build: 
+      dockerfile: test/Hafslund.Akka.Persistence.Bigtable.PerformanceTests/Dockerfile_emulator
+      context: ../../

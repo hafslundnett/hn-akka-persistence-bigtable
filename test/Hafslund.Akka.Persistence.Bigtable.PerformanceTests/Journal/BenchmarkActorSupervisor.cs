@@ -1,9 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Akka.Actor;
-using AkkaIntegration.Tests.Performance.Persistence;
 
 namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Journal
 {

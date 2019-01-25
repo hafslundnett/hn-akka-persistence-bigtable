@@ -1,0 +1,12 @@
+queue: 'Hosted Ubuntu 1604'
+steps:
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'test'
+    projects: '**/*.Tests.csproj'
+- task: DockerCompose@0
+  displayName: AkkaIntegrationTests
+  inputs:
+    dockerComposeFile: 'test/Hafslund.Akka.Persistence.Bigtable.IntegrationTests/docker-compose.yaml'
+    dockerComposeCommand: run akkapersistenceintegrationtests
+  timeoutInMinutes: 30

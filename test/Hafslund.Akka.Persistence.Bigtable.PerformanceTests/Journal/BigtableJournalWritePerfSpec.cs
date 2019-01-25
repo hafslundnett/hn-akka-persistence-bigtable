@@ -1,5 +1,4 @@
 using System.Linq;
-using AkkaIntegration.Tests.Performance.Persistence;
 using NBench;
 
 namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Journal
@@ -11,6 +10,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Journal
 
         public override void Setup(BenchmarkContext context)
         {
+            ReInitializeTable(JournalTable);
             base.Setup(context);
             _writeCounter = context.GetCounter(WriteCounterName);
         }
@@ -19,7 +19,6 @@ namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Journal
         [PerfBenchmark(NumberOfIterations = 5, RunMode = RunMode.Iterations,
             Description = "Write performance spec by 200 persistent actors", SkipWarmups = true)]
         [CounterMeasurement(WriteCounterName)]
-        //[CounterMeasurement(RecoveryCounterName)]
         [GcMeasurement(GcMetric.TotalCollections, GcGeneration.AllGc)]
         [MemoryMeasurement(MemoryMetric.TotalBytesAllocated)]
         [TimingMeasurement]

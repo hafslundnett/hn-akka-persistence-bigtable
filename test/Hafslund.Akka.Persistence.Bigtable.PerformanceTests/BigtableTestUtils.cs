@@ -2,11 +2,11 @@ using System;
 using System.Threading;
 using Google.Api.Gax.Grpc;
 using Google.Cloud.Bigtable.Admin.V2;
+using Google.Cloud.Bigtable.Common.V2;
 using Google.Cloud.Bigtable.V2;
 using Grpc.Core;
-using TableName = Google.Cloud.Bigtable.Admin.V2.TableName;
 
-namespace Hafslund.Akka.Persistence.Bigtable.IntegrationTests
+namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests
 {
     public static class BigtableTestUtils
     {

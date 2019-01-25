@@ -2,43 +2,34 @@ using Akka.Actor;
 using Akka.Configuration;
 using Akka.Persistence;
 using Akka.Persistence.TCK.Journal;
-using Akka.Serialization;
-using Akka.TestKit;
-using Google.Cloud.Bigtable.Common.V2;
-using Google.Cloud.Bigtable.V2;
-using Hafslund.Akka.Persistence.Bigtable.IntegrationTests;
-using Microsoft.Extensions.Configuration;
-using Moq;
 using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using Xunit;
 
 namespace Hafslund.Akka.Persistence.Bigtable.IntegrationTests.Journal
 {
+    /// <summary>
+    /// To run tests locally, first run: gcloud beta emulators bigtable start --host-port localhost:8090
+    /// </summary>
     public class BigtableJournalSpec : JournalSpec
     {
-        private readonly static string TableName;
+        public static readonly string Host = GetEnvOrDefault("BIGTABLE_EMULATOR_HOST", "localhost:8090");
+
+        private const string ProjectId = "my-project";
+        private const string InstanceId = "my-instance";
+        private static readonly string TableName = "JournalSpec";
         private static readonly Config SpecConfig;
-        public static IConfigurationRoot ReadConfig()
+
+        private static string GetTablePath()
         {
-            return new ConfigurationBuilder()
-                .AddJsonFile("appsettings.Development.json", optional: true)
-                .AddEnvironmentVariables()
-                .Build();
+            return $"projects/{ProjectId}/instances/{InstanceId}/tables/{TableName}";
         }
 
         static BigtableJournalSpec()
         {
-            var config = ReadConfig();
-
-            var timeFactor = int.Parse(config.GetValue("INTEGRATION_TEST_TIME_FACTOR", "1"));
-            Console.WriteLine($"BigtableSnapshotStoreSpec timefactor: {timeFactor}");
-
-            TableName = config.GetValue("INTEGRATION_TEST_JOURNAL_TABLE", "NOT_SET");
             Console.WriteLine($"BigtableJournalSpec bigtable table: {TableName}");
 
-            SpecConfig = ConfigurationFactory.ParseString($"akka.test.timefactor={timeFactor}")
+            SpecConfig = ConfigurationFactory.ParseString($"akka.test.timefactor=10")
                 .WithFallback(ConfigurationFactory.ParseString(@"
                 akka {
                     actor {
@@ -68,9 +59,9 @@ namespace Hafslund.Akka.Persistence.Bigtable.IntegrationTests.Journal
                             plugin = ""akka.persistence.journal.bigtable""
                             bigtable {
                                 enable-serialization-with-transport = true
-                                class = ""Hafslund.Akka.Persistence.Bigtable.Journal.BigtableJournal, Hafslund.Akka.Persistence.Bigtable""
+                                class = ""Hafslund.Akka.Persistence.Bigtable.IntegrationTests.Journal.BigtableJournalTester, Hafslund.Akka.Persistence.Bigtable.IntegrationTests""
                                 plugin-dispatcher = ""akka.actor.default-dispatcher""
-                                table-name = """ + TableName + @"""
+                                table-name = """ + GetTablePath() + @"""
                                 auto-initialize = on
                             }
                         }
@@ -79,15 +70,19 @@ namespace Hafslund.Akka.Persistence.Bigtable.IntegrationTests.Journal
         }
         public BigtableJournalSpec() : base(SpecConfig)
         {
+            BigtableTestUtils.InitializeWithEmulator(Host, ProjectId, InstanceId, TableName);
             Initialize();
         }
 
         protected override void PreparePersistenceId(string pid)
         {
-            var rowRange = RowRange.Closed(new BigtableByteString($"{pid}"), new BigtableByteString($"{pid}~"));
-            BigtableTestUtils.DeleteRows(TableName, rowRange);
+            BigtableTestUtils.InitializeWithEmulator(Host, ProjectId, InstanceId, TableName);
         }
 
+        private static string GetEnvOrDefault(string name, string defaultValue)
+        {
+            return Environment.GetEnvironmentVariable(name) ?? defaultValue;
+        }
 
         [Fact]
         public void Journal_fail_to_write_event_if_the_sequence_number_is_already_used()
