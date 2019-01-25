@@ -1,8 +1,8 @@
 version: '3'
 services:
-  netbastimeseriesapitests:
+  akkapersistenceintegrationtests:
     build: 
-      dockerfile: test/MdmApiTimeSeries.NetBas.IntegrationTests/Dockerfile
+      dockerfile: test/Hafslund.Akka.Persistence.Bigtable.IntegrationTests/Dockerfile
       context: ../../
     links:
       - bigtable
@@ -10,5 +10,5 @@ services:
       - BIGTABLE_EMULATOR_HOST=bigtable:8090
   bigtable:
     build: 
-      context: ../
-      dockerfile: MdmApiTimeSeries.TestUtils/BigtableEmulator/Dockerfile
+      dockerfile: test/Hafslund.Akka.Persistence.Bigtable.IntegrationTests/Dockerfile_emulator
+      context: ../../
