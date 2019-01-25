@@ -1,0 +1,14 @@
+version: '3'
+services:
+  netbastimeseriesapitests:
+    build: 
+      dockerfile: test/MdmApiTimeSeries.NetBas.IntegrationTests/Dockerfile
+      context: ../../
+    links:
+      - bigtable
+    environment:
+      - BIGTABLE_EMULATOR_HOST=bigtable:8090
+  bigtable:
+    build: 
+      context: ../
+      dockerfile: MdmApiTimeSeries.TestUtils/BigtableEmulator/Dockerfile
