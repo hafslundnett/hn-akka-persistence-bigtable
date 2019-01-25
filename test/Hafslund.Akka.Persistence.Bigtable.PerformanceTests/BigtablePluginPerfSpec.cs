@@ -4,19 +4,32 @@ using System.Linq;
 using System.Threading.Tasks;
 using Akka.Actor;
 using Akka.Configuration;
-using AkkaIntegration.Tests.Performance.Persistence;
-using Google.Cloud.Bigtable.Common.V2;
-using Google.Cloud.Bigtable.V2;
 using Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Journal;
-using Microsoft.Extensions.Configuration;
 using NBench;
 using NBench.Util;
 
 namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests
 {
+    /// <summary>
+    /// To run tests locally, first run: gcloud beta emulators bigtable start --host-port localhost:8091
+    /// </summary>
     public class BigtablePluginPerfSpec
     {
-        private static Config GetSpecConfig(IConfigurationRoot config, string snapshotTable, string journalTable)
+        public static readonly string Host = GetEnvOrDefault("BIGTABLE_EMULATOR_HOST", "localhost:8091");
+        private const string ProjectId = "my-project";
+        private const string InstanceId = "my-instance";
+
+        public string SnapshotStoreTable = "SnapshotStorePerfSpec";
+        public string JournalTable = "JournalPerfSpec";
+
+        private readonly Config _specConfig;
+
+        protected BigtablePluginPerfSpec()
+        {
+            _specConfig = GetSpecConfig(SnapshotStoreTable, JournalTable);
+        }
+
+        private static Config GetSpecConfig(string snapshotTable, string journalTable)
         {
             var specConfig = ConfigurationFactory.ParseString(@"
                 akka {
@@ -35,9 +48,9 @@ namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests
                         snapshot-store {
                             plugin = ""akka.persistence.snapshot-store.bigtable""
                             bigtable {
-                                class = ""Hafslund.Akka.Persistence.Bigtable.Snapshot.BigtableSnapshotStore, Hafslund.Akka.Persistence.Bigtable""
+                                class = ""Hafslund.Akka.Persistence.Bigtable.PerformanceTests.BigtableSnapshotStoreTester, Hafslund.Akka.Persistence.Bigtable.PerformanceTests""
                                 plugin-dispatcher = ""akka.actor.default-dispatcher""
-                                table-name = """ + snapshotTable + @"""
+                                table-name = """ + GetTablePath(snapshotTable) + @"""
                                 auto-initialize = on
                                 default-serializer = messagepack
                             }
@@ -46,9 +59,9 @@ namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests
                         journal {
                             plugin = ""akka.persistence.journal.bigtable""
                             bigtable {
-                                class = ""Hafslund.Akka.Persistence.Bigtable.Journal.BigtableJournal, Hafslund.Akka.Persistence.Bigtable""
+                                class = ""Hafslund.Akka.Persistence.Bigtable.PerformanceTests.BigtableJournalTester, Hafslund.Akka.Persistence.Bigtable.PerformanceTests""
                                 plugin-dispatcher = ""akka.actor.default-dispatcher""
-                                table-name = """ + journalTable + @"""
+                                table-name = """ + GetTablePath(journalTable) + @"""
                                 auto-initialize = on
                                 default-serializer = messagepack
                             }
@@ -58,31 +71,29 @@ namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests
 
             return specConfig;
         }
-        public string SnapshotStoreTable { get; }
-        public string JournalTable { get; }
-        private readonly Config _specConfig;
-        public static AtomicCounter TableVersionCounter = new AtomicCounter(0);
-        public static IConfigurationRoot ReadConfig()
+        
+        private static string GetTablePath(string tableName)
         {
-            return new ConfigurationBuilder()
-                .AddJsonFile("appsettings.Development.json", optional: true)
-                .AddEnvironmentVariables()
-                .Build();
+            return $"projects/{ProjectId}/instances/{InstanceId}/tables/{tableName}";
         }
+        
+        public static AtomicCounter TableVersionCounter = new AtomicCounter(0);       
 
         protected virtual int PersistentActorCount { get; } = 200;
+        
         public static readonly TimeSpan MaxTimeout = TimeSpan.FromMinutes(6);
+        
         protected ActorSystem ActorSystem { get; set; }
+        
         protected IActorRef Supervisor { get; set; }
-        private readonly List<String> _persistentActorIds = new List<String>();
-        protected List<String> PersistentActorIds => _persistentActorIds;
+        
+        private readonly List<string> _persistentActorIds = new List<string>();
 
-        protected BigtablePluginPerfSpec()
+        protected List<string> PersistentActorIds => _persistentActorIds;
+
+        private static string GetEnvOrDefault(string name, string defaultValue)
         {
-            var config = ReadConfig();
-            SnapshotStoreTable = config.GetValue<string>("PERFORMANCE_TEST_SNAPSHOT_STORE_TABLE");
-            JournalTable = config.GetValue<string>("PERFORMANCE_TEST_JOURNAL_TABLE");
-            _specConfig = GetSpecConfig(config, SnapshotStoreTable, JournalTable);
+            return Environment.GetEnvironmentVariable(name) ?? defaultValue;
         }
 
         [PerfSetup]
@@ -113,28 +124,9 @@ namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests
             Supervisor.Ask<AllTerminated>(new TerminateAll(), TimeSpan.FromMinutes(2)).GetAwaiter().GetResult();
         }
 
-        protected void DeleteRows(string tableName, string pid)
+        protected void ReInitializeTable(string tableName)
         {
-
-            var rowRange = RowRange.Closed(new BigtableByteString($"{pid}"), new BigtableByteString($"{pid}~"));
-            var bigtableClient = BigtableClient.Create();
-            var stream = bigtableClient.ReadRows(TableName.Parse(tableName), RowSet.FromRowRanges(rowRange));
-
-            var deleteRows = new List<MutateRowsRequest.Types.Entry>();
-
-            using (var enumerator = stream.GetEnumerator())
-            {
-                while (enumerator.MoveNext().GetAwaiter().GetResult())
-                {
-                    deleteRows.Add(Mutations.CreateEntry(enumerator.Current.Key, Mutations.DeleteFromRow()));
-                }
-            }
-
-            if (deleteRows.Any())
-            {
-                bigtableClient.MutateRows(TableName.Parse(tableName), deleteRows);
-            }
+            BigtableTestUtils.InitializeWithEmulator(Host, ProjectId, InstanceId, tableName);
         }
-
     }
 }

@@ -1,8 +1,7 @@
-﻿using System;
-using Akka.Actor;
+﻿using Akka.Actor;
 using Akka.Persistence;
 
-namespace AkkaIntegration.Tests.Performance.Persistence
+namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Journal
 {
     public class PersistentJournalBenchmarkActor : ReceivePersistentActor
     {

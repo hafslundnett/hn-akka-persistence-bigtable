@@ -1,4 +1,4 @@
-﻿namespace AkkaIntegration.Tests.Performance.Persistence
+﻿namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Journal
 {
     /// <summary>
     /// Messages used for working with benchmark actors

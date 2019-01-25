@@ -1,18 +1,10 @@
-﻿using Akka.Actor;
-using Akka.Configuration;
-using Akka.Util.Internal;
-using Google.Cloud.Bigtable.Common.V2;
-using Google.Cloud.Bigtable.V2;
-using Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Journal;
-using NBench;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
-using Hafslund.Akka.Persistence.Bigtable.PerformanceTests;
+using Akka.Actor;
+using NBench;
 
-namespace AkkaIntegration.Tests.Performance.Persistence
+namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Journal
 {
     public class BigTableJournalPerfSpecs : BigtablePluginPerfSpec
     {
@@ -60,18 +52,7 @@ namespace AkkaIntegration.Tests.Performance.Persistence
         {
             context.Trace.Info("Started cleanup");
             ActorSystem.Terminate().Wait();
-            try
-            {
-                foreach (var pid in PersistentActorIds)
-                {
-                    DeleteRows(JournalTable, pid);
-                }
-            }
-            catch (Exception ex)
-            {
-                context.Trace.Error(ex, "Error occured during benchmark cleanup");
-            }
-
+            ReInitializeTable(JournalTable);
             context.Trace.Info("Finished cleanup");
         }
     }
