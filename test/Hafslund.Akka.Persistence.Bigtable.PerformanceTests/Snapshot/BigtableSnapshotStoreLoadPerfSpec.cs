@@ -16,6 +16,8 @@ namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Snapshot
         public override void Setup(BenchmarkContext context)
         {
             ReInitializeTable(SnapshotStoreTable);
+            ReInitializeTable(JournalTable);
+
             base.Setup(context);
             _snapshotLoadCounter = context.GetCounter(SnapshotLoadCounterName);
             _recoveryCounter = context.GetCounter(RecoveryCounterName);

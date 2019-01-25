@@ -12,6 +12,7 @@ namespace Hafslund.Akka.Persistence.Bigtable.PerformanceTests.Snapshot
             context.Trace.Info("Started cleanup");
             ActorSystem.Terminate().Wait();
             ReInitializeTable(SnapshotStoreTable);
+            ReInitializeTable(JournalTable);
             context.Trace.Info("Finished cleanup");
         }
     }
